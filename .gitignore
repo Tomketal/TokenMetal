@@ -1,0 +1,10 @@
+.next
+node_modules
+.env
+.env.local
+data/positions.json
+codex-session.jsonl
+*.tsbuildinfo
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
