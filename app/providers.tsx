@@ -8,8 +8,9 @@ import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { useMemo } from "react";
+import { DEFAULT_SOLANA_RPC_URL } from "@/lib/config";
 
-const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || DEFAULT_SOLANA_RPC_URL;
 const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "mainnet-beta";
 const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 const privyClientId = process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID;
@@ -38,7 +39,7 @@ export function WalletProviders({ children }: { children: React.ReactNode }) {
 
   const walletTree = (
     <ConnectionProvider endpoint={rpcEndpoint}>
-      <WalletProvider wallets={wallets} autoConnect onError={(error) => console.error("Wallet adapter error:", error)}>
+      <WalletProvider wallets={wallets} autoConnect={false} onError={(error) => console.error("Wallet adapter error:", error)}>
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
@@ -72,10 +73,10 @@ export function WalletProviders({ children }: { children: React.ReactNode }) {
         },
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "users-without-wallets"
+            createOnLogin: "off"
           },
           solana: {
-            createOnLogin: "users-without-wallets"
+            createOnLogin: "off"
           }
         }
       }}

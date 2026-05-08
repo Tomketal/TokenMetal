@@ -1,19 +1,28 @@
 import { NextResponse } from "next/server";
 import { Connection } from "@solana/web3.js";
+import { appConfig, shouldUseSandboxTrading } from "@/lib/config";
 
 export const runtime = "nodejs";
 
-const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-
 export async function POST(request: Request) {
   try {
+    if (shouldUseSandboxTrading()) {
+      return NextResponse.json(
+        {
+          error:
+            "Sandbox mode is active because live mainnet trading is not configured. Add SOLANA_RPC_URL for live broadcasts, or reload the app to use sandbox trading."
+        },
+        { status: 400 }
+      );
+    }
+
     const body = (await request.json()) as { signedTransaction?: string };
     if (!body.signedTransaction) {
       return NextResponse.json({ error: "signedTransaction is required." }, { status: 400 });
     }
 
     const bytes = Buffer.from(body.signedTransaction, "base64");
-    const connection = new Connection(rpcUrl, "confirmed");
+    const connection = new Connection(appConfig.solanaRpcUrl, "confirmed");
 
     const signature = await connection.sendRawTransaction(bytes, {
       skipPreflight: true,
@@ -23,8 +32,13 @@ export async function POST(request: Request) {
     await waitForSignatureConfirmationHttp(connection, signature);
     return NextResponse.json({ signature });
   } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unable to broadcast transaction.";
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to broadcast transaction." },
+      {
+        error: detail.includes("Access forbidden") || detail.includes("403")
+          ? `${detail} Configure SOLANA_RPC_URL with a write-enabled mainnet RPC for server-side broadcast.`
+          : detail
+      },
       { status: 400 }
     );
   }

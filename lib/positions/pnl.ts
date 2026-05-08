@@ -1,4 +1,4 @@
-import { appConfig } from "@/lib/config";
+import { appConfig, shouldUseSandboxTrading } from "@/lib/config";
 import { getTokenValueInUsdc } from "@/lib/trading/jupiter";
 import type { Position } from "@/lib/types";
 
@@ -13,7 +13,7 @@ export async function refreshPositionPnl(position: Position): Promise<Position> 
     return position;
   }
 
-  if (appConfig.dryRun) {
+  if (shouldUseSandboxTrading()) {
     const ageMs = Date.now() - new Date(position.openedAt).getTime();
     const wave = Math.sin(ageMs / 20000);
     const drift = Math.min(0.08, ageMs / 1000 / 60 / 100);

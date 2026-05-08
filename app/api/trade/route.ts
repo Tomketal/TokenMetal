@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { appConfig } from "@/lib/config";
+import { shouldUseSandboxTrading } from "@/lib/config";
 import { createPosition } from "@/lib/positions/store";
 import { prepareBuyTrade } from "@/lib/trading/jupiter";
 import type { PreparedTrade } from "@/lib/types";
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ preparedTrade });
     }
 
-    const position = await createPosition(body.preparedTrade as PreparedTrade, appConfig.dryRun ? `dry-run-${crypto.randomUUID()}` : body.signature);
+    const position = await createPosition(body.preparedTrade as PreparedTrade, shouldUseSandboxTrading() ? `dry-run-${crypto.randomUUID()}` : body.signature);
     return NextResponse.json({ position });
   } catch (error) {
     return NextResponse.json(

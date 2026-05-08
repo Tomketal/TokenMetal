@@ -20,6 +20,11 @@ const executableSymbol = tradeEngine === "raydium-devnet" ? "TTDG" : "";
 const positionsStoragePrefix = "token-letal:positions";
 
 type PositionBuckets = { open: Position[]; closed: Position[] };
+type TradeStatus = {
+  sandboxTrading: boolean;
+  liveTradingEnabled: boolean;
+  sandboxSigning: boolean;
+};
 type TriggerAuthChallenge =
   | {
     type: "message";
@@ -54,6 +59,11 @@ export default function Home() {
   const [openedPositionNotice, setOpenedPositionNotice] = useState<{ tokenSymbol: string } | null>(null);
   const [inspectedPosition, setInspectedPosition] = useState<Position | null>(null);
   const [triggerAuthTokens, setTriggerAuthTokens] = useState<Record<string, string>>({});
+  const [tradeStatus, setTradeStatus] = useState<TradeStatus>({
+    sandboxTrading: true,
+    liveTradingEnabled: false,
+    sandboxSigning
+  });
   const [busy, setBusy] = useState("");
   const [armingAll, setArmingAll] = useState(false);
   const [error, setError] = useState("");
@@ -84,6 +94,8 @@ export default function Home() {
   const positionsStorageKey = owner ? `${positionsStoragePrefix}:${owner}` : "";
   const holdingIndex = Math.max(0, holdingPeriods.indexOf(holdingPeriod));
   const capitalPrecision = capitalSymbol === "SOL" ? 4 : 2;
+  const effectiveDryRun = tradeStatus.sandboxTrading || dryRun;
+  const effectiveSandboxSigning = effectiveDryRun && (tradeStatus.sandboxSigning || sandboxSigning);
   const capitalDisplay = walletConnected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Connect Wallet";
   const investAmount = useMemo(() => {
     const requested = (usdcBalance * allocationPercentage) / 100;
@@ -160,6 +172,21 @@ export default function Home() {
     commitPositions((previous) => mergePositionBuckets(apiPositions, previous));
     setPositionsLastUpdated(new Date());
   }, [owner, commitPositions]);
+
+  useEffect(() => {
+    fetch("/api/trade/status", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (typeof payload?.sandboxTrading === "boolean") {
+          setTradeStatus({
+            sandboxTrading: payload.sandboxTrading,
+            liveTradingEnabled: Boolean(payload.liveTradingEnabled),
+            sandboxSigning: Boolean(payload.sandboxSigning)
+          });
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!owner || !positionsStorageKey) {
@@ -277,10 +304,10 @@ export default function Home() {
       const openedTokenSymbol = preparedTrade.recommendation.tokenSymbol;
       let signature = `dry-run-${crypto.randomUUID()}`;
 
-      if (!dryRun) {
+      if (!effectiveDryRun) {
         const transaction = deserializeTransaction(preparedTrade.swapTransaction);
         signature = await signAndSendVersionedTransaction(transaction);
-      } else if (sandboxSigning) {
+      } else if (effectiveSandboxSigning) {
         signature = await sendSandboxSignature(`Token-Metal sandbox buy ${preparedTrade.recommendation.tokenSymbol}`);
       }
 
@@ -330,10 +357,10 @@ export default function Home() {
 
       let signature = `dry-run-close-${crypto.randomUUID()}`;
 
-      if (!dryRun) {
+      if (!effectiveDryRun) {
         const transaction = deserializeTransaction(preparePayload.closeTrade.swapTransaction);
         signature = await signAndSendVersionedTransaction(transaction);
-      } else if (sandboxSigning) {
+      } else if (effectiveSandboxSigning) {
         signature = await sendSandboxSignature(`Token-Metal sandbox close ${position.tokenSymbol}`);
       }
 
@@ -759,7 +786,22 @@ export default function Home() {
       return signature;
     }
 
-    // Prefer wallet-native broadcast path first. Some public RPCs reject direct sendRawTransaction with 403.
+    if (signTransaction) {
+      const signed = await signTransaction(transaction);
+      const relayResponse = await fetch("/api/tx/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          signedTransaction: bytesToBase64(signed.serialize())
+        })
+      });
+      const relayPayload = await relayResponse.json();
+      if (!relayResponse.ok || !relayPayload.signature) {
+        throw new Error(relayPayload.error || "Relay broadcast failed.");
+      }
+      return relayPayload.signature as string;
+    }
+
     try {
       const signature = await sendTransaction(transaction, connection, {
         skipPreflight: true,
@@ -772,51 +814,13 @@ export default function Home() {
         throw walletBroadcastError;
       }
 
-      if (!signTransaction) {
-        throw walletBroadcastError;
+      if (isAccessForbiddenError(walletBroadcastError)) {
+        throw new Error(
+          "RPC rejected transaction broadcast with 403 Access forbidden. Use a wallet that supports transaction signing, add SOLANA_RPC_URL with a write-enabled mainnet RPC, or switch NEXT_PUBLIC_DRY_RUN=true for sandbox trading, then restart the app."
+        );
       }
 
-      const signed = await signTransaction(transaction);
-      const signedSignature = bs58.encode(signed.signatures[0]);
-      const serialized = signed.serialize();
-
-      try {
-        const signature = await connection.sendRawTransaction(serialized, {
-          skipPreflight: true,
-          maxRetries: 3
-        }).catch((error: Error) => {
-          if (error.message.toLowerCase().includes("already been processed")) return signedSignature;
-          throw error;
-        });
-        await waitForSignatureConfirmationHttp(connection, signature);
-        return signature;
-      } catch (rpcBroadcastError) {
-        if (isAccessForbiddenError(walletBroadcastError) || isAccessForbiddenError(rpcBroadcastError)) {
-          try {
-            const relayResponse = await fetch("/api/tx/broadcast", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                signedTransaction: bytesToBase64(serialized)
-              })
-            });
-            const relayPayload = await relayResponse.json();
-            if (!relayResponse.ok || !relayPayload.signature) {
-              throw new Error(relayPayload.error || "Relay broadcast failed.");
-            }
-            return relayPayload.signature as string;
-          } catch (relayError) {
-            throw new Error(
-              [
-                "RPC rejected transaction broadcast with 403 Access forbidden.",
-                relayError instanceof Error ? relayError.message : "Relay broadcast failed.",
-                "Use a write-enabled mainnet RPC in NEXT_PUBLIC_SOLANA_RPC_URL and restart the app."
-              ].join(" ")
-            );
-          }
-        }
-        throw rpcBroadcastError;
-      }
+      throw walletBroadcastError;
     }
   }
 
@@ -1006,7 +1010,7 @@ export default function Home() {
                           {tradeEngine === "raydium-devnet" ? (
                             <p className="rationale">Wallet signs a real Raydium devnet CPMM swap transaction into {executableSymbol}. Position is labeled with this Nansen card for UX testing.</p>
                           ) : (
-                            <p className="rationale">{dryRun && sandboxSigning ? "Solflare signs a harmless devnet transaction, then a sandbox position is created." : dryRun ? "Sandbox position will be created without wallet trade signing." : "Wallet signs the Jupiter market buy transaction."}</p>
+                            <p className="rationale">{effectiveDryRun && effectiveSandboxSigning ? "Solflare signs a harmless devnet transaction, then a sandbox position is created." : effectiveDryRun ? "Sandbox position will be created without wallet trade signing." : "Wallet signs the Jupiter market buy transaction."}</p>
                           )}
                         </article>
 
@@ -1031,7 +1035,7 @@ export default function Home() {
                           </div>
                           <p className="rationale">{preparedTrade.recommendation.profileMatch}</p>
                           <button className="trade-now-button" disabled={busy === "trade" || Boolean(activePreparedPosition)} onClick={executeTrade}>
-                            {activePreparedPosition ? `Close ${activePreparedPosition.tokenSymbol} first` : busy === "trade" ? "Sending..." : dryRun && sandboxSigning ? "Sign sandbox trade" : dryRun ? "Create sandbox position" : "Trade now"}
+                            {activePreparedPosition ? `Close ${activePreparedPosition.tokenSymbol} first` : busy === "trade" ? "Sending..." : effectiveDryRun && effectiveSandboxSigning ? "Sign sandbox trade" : effectiveDryRun ? "Create sandbox position" : "Trade now"}
                           </button>
                         </div>
                       </>
@@ -1110,13 +1114,13 @@ export default function Home() {
 
           {cluster !== "mainnet-beta" ? (
             <section className="screen network-warning network-warning-bottom">
-              <strong>{dryRun ? "Sandbox mode: no real trade" : "Devnet testing mode"}</strong>
+              <strong>{effectiveDryRun ? "Sandbox mode: no real trade" : "Devnet testing mode"}</strong>
               <p>
                 {tradeEngine === "raydium-devnet"
                   ? "Raydium devnet mode signs a real Solflare transaction against a configured Raydium CPMM pool."
-                  : dryRun && sandboxSigning
+                  : effectiveDryRun && effectiveSandboxSigning
                   ? "The app will call Nansen and ask Solflare to sign a harmless devnet transaction before creating sandbox positions. No token swap is executed."
-                  : dryRun
+                  : effectiveDryRun
                     ? "The app will call Nansen and create sandbox positions, but it will not request a Jupiter transaction or wallet trade signature."
                   : "Wallet connection, balance reads, Nansen recommendations, review screens, and position UI can be tested here."}
               </p>

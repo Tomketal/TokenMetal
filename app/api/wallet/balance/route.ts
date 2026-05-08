@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { Connection, PublicKey } from "@solana/web3.js";
+import { appConfig, shouldUseSandboxTrading } from "@/lib/config";
 
 export const runtime = "nodejs";
 
 const nativeSolMint = "So11111111111111111111111111111111111111112";
-const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 const capitalMint =
   process.env.NEXT_PUBLIC_USDC_MINT || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const capitalDecimals = Number(process.env.USDC_DECIMALS || process.env.NEXT_PUBLIC_CAPITAL_DECIMALS || 6);
@@ -24,7 +24,17 @@ export async function GET(request: Request) {
     }
 
     const ownerPublicKey = new PublicKey(owner);
-    const connection = new Connection(rpcUrl, "confirmed");
+    if (shouldUseSandboxTrading()) {
+      return NextResponse.json({
+        balance: 1000,
+        rawAmount: String(1000 * 10 ** capitalDecimals),
+        mint: capitalMint,
+        decimals: capitalDecimals,
+        source: "dry-run"
+      });
+    }
+
+    const connection = new Connection(appConfig.solanaRpcUrl, "confirmed");
 
     if (capitalMint === nativeSolMint) {
       const lamports = await connection.getBalance(ownerPublicKey);

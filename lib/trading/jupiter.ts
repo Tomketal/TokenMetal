@@ -1,7 +1,7 @@
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 import { COMMISSION_BPS, TREASURY_WALLET, computeCommission, isCommissionEnabled } from "@/lib/commission";
-import { appConfig, requireEnv } from "@/lib/config";
+import { appConfig, requireEnv, shouldUseSandboxTrading } from "@/lib/config";
 import { fromRawAmount, toRawAmount } from "@/lib/number";
 import type { PreparedTrade, TokenRecommendation } from "@/lib/types";
 import { prepareRaydiumDevnetSwap, quoteRaydiumDevnetValue } from "./raydium";
@@ -16,7 +16,7 @@ interface BuildSwapParams {
 
 export async function prepareBuyTrade(owner: string, amountUsdc: number, recommendation: TokenRecommendation): Promise<PreparedTrade> {
   const amountUsdcRaw = toRawAmount(amountUsdc, appConfig.usdcDecimals);
-  if (appConfig.dryRun) {
+  if (shouldUseSandboxTrading()) {
     return prepareDryRunBuyTrade(owner, amountUsdc, amountUsdcRaw, recommendation);
   }
 
@@ -90,7 +90,7 @@ export async function prepareBuyTrade(owner: string, amountUsdc: number, recomme
 }
 
 export async function prepareCloseTrade(owner: string, outputMint: string, tokenAmountRaw: string) {
-  if (appConfig.dryRun) {
+  if (shouldUseSandboxTrading()) {
     return {
       quoteResponse: { dryRun: true, inputMint: outputMint, outputMint: appConfig.usdcMint, amount: tokenAmountRaw },
       swapTransaction: ""

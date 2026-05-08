@@ -51,6 +51,8 @@ NEXT_PUBLIC_DRY_RUN=true
 
 In dry-run mode the app still calls Nansen, but the final trade button creates a sandbox position instead of requesting a Jupiter swap transaction or wallet trade signature. Mainnet keeps `NEXT_PUBLIC_DRY_RUN=false` for real execution.
 
+For live mainnet swaps, do not rely on Solana's `api.mainnet-beta.solana.com` public RPC URL for broadcast. Keep `NEXT_PUBLIC_SOLANA_RPC_URL` for wallet reads if needed, and set a private write-enabled endpoint in `SOLANA_RPC_URL` so the server relay can submit signed Jupiter transactions.
+
 To test wallet signing on devnet, use:
 
 ```bash
@@ -74,7 +76,8 @@ JUPITER_TRIGGER_API_KEY=optional_jupiter_trigger_key
 JUPITER_TRIGGER_BASE_URL=https://api.jup.ag/trigger/v2
 NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
 NEXT_PUBLIC_PRIVY_CLIENT_ID=optional_privy_client_id
-NEXT_PUBLIC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+NEXT_PUBLIC_SOLANA_RPC_URL=https://solana-rpc.publicnode.com
+SOLANA_RPC_URL=your_write_enabled_mainnet_rpc_url
 NEXT_PUBLIC_USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 TREASURY_WALLET=C6SXMQLziW8M7SAXQA2BxCmejE7HJRhKA9ahzbdF6CKW
 USDC_DECIMALS=6
