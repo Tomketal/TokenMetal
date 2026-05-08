@@ -178,9 +178,3 @@ lib/
   types.ts
 ```
 
-## Next Build Steps
-
-1. Confirm the exact Nansen endpoint or custom agent payload you will use in the hackathon.
-2. Add Phantom by appending a Phantom adapter in `app/providers.tsx`.
-3. Replace the JSON store with Postgres, Supabase, or SQLite if multiple users will test concurrently.
-4. Add automated status sync + notifications when trigger orders fill/cancel/expire.
