@@ -17,9 +17,23 @@
 4. Submission checklist
 - Path: `/Users/tomketal/Documents/Hackathon solana/token-letal/grants/superteam-agentic-engineering/03-submission-checklist.md`
 
+5. Copilot crowdedness summary
+- Path: `/Users/tomketal/Documents/Hackathon solana/token-letal/grants/superteam-agentic-engineering/copilot/crowdedness-summary.md`
+
+6. Copilot crowdedness raw output (top 10)
+- Path: `/Users/tomketal/Documents/Hackathon solana/token-letal/grants/superteam-agentic-engineering/copilot/search-projects-top10.json`
+
+7. Copilot status proof
+- Path: `/Users/tomketal/Documents/Hackathon solana/token-letal/grants/superteam-agentic-engineering/copilot/status.json`
+
+## One-file upload option
+
+8. Full package ZIP
+- Path: `/Users/tomketal/Documents/Hackathon solana/token-letal/grants/superteam-agentic-engineering/grant-response-package.zip`
+
 ## Still needed from Colosseum
 
-5. Crowdedness Score screenshot
+9. Crowdedness Score screenshot
 - Suggested filename: `crowdedness-score-screenshot.png`
 - Put it in your shared Drive folder:
   `https://drive.google.com/drive/folders/19CyDynMwqx7B3frZBWXQx10nZke7NW0t?usp=sharing`

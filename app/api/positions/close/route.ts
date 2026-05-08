@@ -15,6 +15,9 @@ export async function POST(request: Request) {
       const positions = await listPositions(body.owner);
       const position = positions.find((item) => item.id === body.positionId && item.status === "open");
       if (!position) throw new Error("Open position not found.");
+      if (position.triggerOrder) {
+        throw new Error("This position has an active TP/SL trigger order. Cancel TP/SL first to unlock tokens from vault.");
+      }
 
       const compatibleRaydiumPosition =
         appConfig.tradeEngine !== "raydium-devnet" ||
@@ -32,6 +35,9 @@ export async function POST(request: Request) {
     const positions = await listPositions(body.owner);
     const openPosition = positions.find((item) => item.id === body.positionId);
     if (!openPosition) throw new Error("Position not found.");
+    if (openPosition.triggerOrder) {
+      throw new Error("This position has an active TP/SL trigger order. Cancel TP/SL first to unlock tokens from vault.");
+    }
 
     const finalSnapshot = await refreshPositionPnl(openPosition);
     const position = await closePosition(

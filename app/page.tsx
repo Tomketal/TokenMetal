@@ -1,26 +1,47 @@
 "use client";
 
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram, Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Connection, PublicKey, SystemProgram, Transaction, VersionedTransaction } from "@solana/web3.js";
+import { usePrivy } from "@privy-io/react-auth";
+import { useSignAndSendTransaction as usePrivySignAndSendTransaction, useWallets as usePrivySolanaWallets, type ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
+import Image from "next/image";
 import bs58 from "bs58";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fromRawAmount, pct, usd } from "@/lib/number";
+import { pct, usd } from "@/lib/number";
 import { holdingPeriods, riskProfiles, type HoldingPeriod, type Position, type PreparedTrade, type RiskProfile, type TokenRecommendation } from "@/lib/types";
-import { ClientWalletButton } from "./components/ClientWalletButton";
+import { PrivyLoginButton } from "./components/PrivyLoginButton";
 
-const usdcMint = process.env.NEXT_PUBLIC_USDC_MINT || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-const usdcDecimals = Number(process.env.NEXT_PUBLIC_CAPITAL_DECIMALS || 6);
 const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "mainnet-beta";
 const dryRun = process.env.NEXT_PUBLIC_DRY_RUN === "true";
 const sandboxSigning = process.env.NEXT_PUBLIC_SANDBOX_SIGNING === "true";
 const tradeEngine = process.env.NEXT_PUBLIC_TRADE_ENGINE || "jupiter";
 const capitalSymbol = process.env.NEXT_PUBLIC_CAPITAL_SYMBOL || "USDC";
 const executableSymbol = tradeEngine === "raydium-devnet" ? "TTDG" : "";
-const nativeSolMint = "So11111111111111111111111111111111111111112";
+const positionsStoragePrefix = "token-letal:positions";
+
+type PositionBuckets = { open: Position[]; closed: Position[] };
+type TriggerAuthChallenge =
+  | {
+    type: "message";
+    challenge: string;
+  }
+  | {
+    type: "transaction";
+    transaction: string;
+  };
+
+function resolvePrivySolanaChain(value: string): "solana:mainnet" | "solana:devnet" | "solana:testnet" {
+  if (value === "devnet") return "solana:devnet";
+  if (value === "testnet") return "solana:testnet";
+  return "solana:mainnet";
+}
 
 export default function Home() {
   const { connection } = useConnection();
-  const { publicKey, connected, sendTransaction, signTransaction } = useWallet();
+  const { publicKey, sendTransaction, signTransaction, signMessage } = useWallet();
+  const { ready: privyReady, authenticated: privyAuthenticated, user: privyUser } = usePrivy();
+  const { wallets: privySolanaWallets } = usePrivySolanaWallets();
+  const { signAndSendTransaction: privySignAndSendTransaction } = usePrivySignAndSendTransaction();
   const [riskProfile, setRiskProfile] = useState<RiskProfile>("medium");
   const [allocationPercentage, setAllocationPercentage] = useState(10);
   const [holdingPeriod, setHoldingPeriod] = useState<HoldingPeriod>("1 week");
@@ -28,17 +49,42 @@ export default function Home() {
   const [recommendations, setRecommendations] = useState<TokenRecommendation[]>([]);
   const [selected, setSelected] = useState<TokenRecommendation | null>(null);
   const [preparedTrade, setPreparedTrade] = useState<PreparedTrade | null>(null);
-  const [positions, setPositions] = useState<{ open: Position[]; closed: Position[] }>({ open: [], closed: [] });
+  const [positions, setPositions] = useState<PositionBuckets>(emptyPositionBuckets());
   const [positionsLastUpdated, setPositionsLastUpdated] = useState<Date | null>(null);
   const [openedPositionNotice, setOpenedPositionNotice] = useState<{ tokenSymbol: string } | null>(null);
   const [inspectedPosition, setInspectedPosition] = useState<Position | null>(null);
+  const [triggerAuthTokens, setTriggerAuthTokens] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");
+  const [armingAll, setArmingAll] = useState(false);
   const [error, setError] = useState("");
 
-  const owner = publicKey?.toBase58() || "";
+  const walletAdapterOwner = publicKey?.toBase58() || "";
+  const privyConnectedSolanaWallet = useMemo<ConnectedStandardSolanaWallet | null>(() => {
+    if (!Array.isArray(privySolanaWallets) || privySolanaWallets.length === 0) return null;
+    return privySolanaWallets[0] || null;
+  }, [privySolanaWallets]);
+  const privyConnectedOwner = privyConnectedSolanaWallet?.address || "";
+  const privyLinkedOwner = useMemo(() => {
+    if (!privyUser) return "";
+    if (privyUser.wallet?.chainType === "solana" && privyUser.wallet.address) {
+      return privyUser.wallet.address;
+    }
+    for (const account of privyUser.linkedAccounts) {
+      if (account.type === "wallet" && account.chainType === "solana") {
+        return account.address;
+      }
+    }
+    return "";
+  }, [privyUser]);
+  const privySessionActive = privyReady && privyAuthenticated;
+  const privySessionOwner = privySessionActive ? (privyConnectedOwner || privyLinkedOwner) : "";
+  const owner = walletAdapterOwner || privySessionOwner;
+  const walletConnected = Boolean(walletAdapterOwner || privySessionOwner);
+  const signedInWithoutWallet = privySessionActive && !walletConnected;
+  const positionsStorageKey = owner ? `${positionsStoragePrefix}:${owner}` : "";
   const holdingIndex = Math.max(0, holdingPeriods.indexOf(holdingPeriod));
   const capitalPrecision = capitalSymbol === "SOL" ? 4 : 2;
-  const capitalDisplay = connected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Connect Solflare";
+  const capitalDisplay = walletConnected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Connect Wallet";
   const investAmount = useMemo(() => {
     const requested = (usdcBalance * allocationPercentage) / 100;
     if (capitalSymbol === "SOL") {
@@ -54,36 +100,83 @@ export default function Home() {
     () => positions.open.reduce((sum, position) => sum + (position.pnlUsd || 0), 0),
     [positions.open]
   );
+  const canRequestOpportunities = walletConnected && busy !== "recommendations" && investAmount > 0;
+  const needsUsdcFunding = walletConnected && capitalSymbol === "USDC" && investAmount <= 0;
+  const fundingBlockerMessage = "Insufficient funds. Deposit USDC to your wallet to get opportunities, and keep a small SOL balance for network fees.";
+
+  const persistPositions = useCallback((next: PositionBuckets) => {
+    if (!positionsStorageKey) return;
+    try {
+      window.localStorage.setItem(positionsStorageKey, JSON.stringify(next));
+    } catch {
+      // Ignore storage write failures (private mode/quota).
+    }
+  }, [positionsStorageKey]);
+
+  const commitPositions = useCallback((next: PositionBuckets | ((previous: PositionBuckets) => PositionBuckets)) => {
+    setPositions((previous) => {
+      const resolved = typeof next === "function"
+        ? (next as (previous: PositionBuckets) => PositionBuckets)(previous)
+        : next;
+      persistPositions(resolved);
+      return resolved;
+    });
+  }, [persistPositions]);
 
   const refreshBalance = useCallback(async () => {
-    if (!publicKey) {
+    if (!owner) {
       setUsdcBalance(0);
       return;
     }
 
-    if (usdcMint === nativeSolMint) {
-      const lamports = await connection.getBalance(publicKey);
-      setUsdcBalance(fromRawAmount(String(lamports), usdcDecimals));
-      return;
-    }
+    try {
+      const response = await fetch(`/api/wallet/balance?owner=${owner}`, {
+        cache: "no-store"
+      });
+      if (!response.ok) {
+        throw new Error("Balance API request failed.");
+      }
 
-    const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-      mint: new PublicKey(usdcMint)
-    });
-    const raw = accounts.value.reduce((sum, account) => {
-      const amount = account.account.data.parsed.info.tokenAmount.amount as string;
-      return sum + BigInt(amount);
-    }, 0n);
-    setUsdcBalance(fromRawAmount(raw.toString(), usdcDecimals));
-  }, [connection, publicKey]);
+      const payload = (await response.json()) as { balance?: number };
+      if (typeof payload.balance === "number" && Number.isFinite(payload.balance)) {
+        setUsdcBalance(payload.balance);
+        return;
+      }
+
+      throw new Error("Balance API returned an invalid value.");
+    } catch {
+      setUsdcBalance(0);
+    }
+  }, [owner]);
 
   const refreshPositions = useCallback(async () => {
     if (!owner) return;
     const response = await fetch(`/api/positions?owner=${owner}`, { cache: "no-store" });
     const payload = await response.json();
-    setPositions(payload);
+    if (!response.ok) {
+      throw new Error(payload?.error || "Positions API request failed.");
+    }
+    const apiPositions = normalizePositionBuckets(payload);
+    commitPositions((previous) => mergePositionBuckets(apiPositions, previous));
     setPositionsLastUpdated(new Date());
-  }, [owner]);
+  }, [owner, commitPositions]);
+
+  useEffect(() => {
+    if (!owner || !positionsStorageKey) {
+      setPositions(emptyPositionBuckets());
+      setPositionsLastUpdated(null);
+      setTriggerAuthTokens({});
+      return;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(positionsStorageKey);
+      if (!stored) return;
+      setPositions(normalizePositionBuckets(JSON.parse(stored)));
+    } catch {
+      // Ignore corrupt storage and continue with API source.
+    }
+  }, [owner, positionsStorageKey]);
 
   useEffect(() => {
     refreshBalance().catch(() => setUsdcBalance(0));
@@ -188,7 +281,7 @@ export default function Home() {
         const transaction = deserializeTransaction(preparedTrade.swapTransaction);
         signature = await signAndSendVersionedTransaction(transaction);
       } else if (sandboxSigning) {
-        signature = await sendSandboxSignature(`Token Letal sandbox buy ${preparedTrade.recommendation.tokenSymbol}`);
+        signature = await sendSandboxSignature(`Token-Metal sandbox buy ${preparedTrade.recommendation.tokenSymbol}`);
       }
 
       const response = await fetch("/api/trade", {
@@ -203,10 +296,14 @@ export default function Home() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Position creation failed.");
+      const createdPosition = normalizePosition(payload.position);
+      if (createdPosition) {
+        commitPositions((previous) => upsertOpenPosition(previous, createdPosition));
+      }
 
       setPreparedTrade(null);
-      await Promise.all([refreshBalance(), refreshPositions()]);
       setOpenedPositionNotice({ tokenSymbol: openedTokenSymbol });
+      await Promise.allSettled([refreshBalance(), refreshPositions()]);
     } catch (err) {
       setError(describeWalletError(err, "Trade execution failed."));
     } finally {
@@ -219,6 +316,10 @@ export default function Home() {
     setBusy(position.id);
 
     try {
+      if (position.triggerOrder) {
+        throw new Error("Cancel the active TP/SL order before closing this position manually.");
+      }
+
       const prepareResponse = await fetch("/api/positions/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -233,7 +334,7 @@ export default function Home() {
         const transaction = deserializeTransaction(preparePayload.closeTrade.swapTransaction);
         signature = await signAndSendVersionedTransaction(transaction);
       } else if (sandboxSigning) {
-        signature = await sendSandboxSignature(`Token Letal sandbox close ${position.tokenSymbol}`);
+        signature = await sendSandboxSignature(`Token-Metal sandbox close ${position.tokenSymbol}`);
       }
 
       const confirmResponse = await fetch("/api/positions/close", {
@@ -243,6 +344,10 @@ export default function Home() {
       });
       const confirmPayload = await confirmResponse.json();
       if (!confirmResponse.ok) throw new Error(confirmPayload.error || "Close confirmation failed.");
+      const closedPosition = normalizePosition(confirmPayload.position);
+      if (closedPosition) {
+        commitPositions((previous) => upsertClosedPosition(previous, closedPosition));
+      }
 
       await Promise.all([refreshBalance(), refreshPositions()]);
     } catch (err) {
@@ -257,6 +362,10 @@ export default function Home() {
     setBusy(position.id);
 
     try {
+      if (position.triggerOrder) {
+        throw new Error("Cancel the active TP/SL order before using local close.");
+      }
+
       const confirmResponse = await fetch("/api/positions/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -269,6 +378,10 @@ export default function Home() {
       });
       const confirmPayload = await confirmResponse.json();
       if (!confirmResponse.ok) throw new Error(confirmPayload.error || "Local close failed.");
+      const closedPosition = normalizePosition(confirmPayload.position);
+      if (closedPosition) {
+        commitPositions((previous) => upsertClosedPosition(previous, closedPosition));
+      }
       await refreshPositions();
     } catch (err) {
       setError(describeWalletError(err, "Unable to close position locally."));
@@ -277,60 +390,434 @@ export default function Home() {
     }
   }
 
+  async function armTriggerOrder(
+    position: Position,
+    options?: {
+      refreshAfter?: boolean;
+      suppressErrorReset?: boolean;
+      suppressErrorReport?: boolean;
+    }
+  ): Promise<boolean> {
+    if (!options?.suppressErrorReset) {
+      setError("");
+    }
+    setBusy(`arm:${position.id}`);
+
+    try {
+      if (tradeEngine !== "jupiter") {
+        throw new Error("TP/SL trigger orders are currently supported only on the Jupiter engine.");
+      }
+
+      const challengeType = resolveTriggerChallengeType();
+      const challengeResponse = await fetch("/api/trigger/oco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "challenge",
+          owner,
+          challengeType
+        })
+      });
+      const challengePayload = await challengeResponse.json();
+      if (!challengeResponse.ok) throw new Error(challengePayload.error || "Unable to start trigger auth.");
+      const challenge = challengePayload.challenge as TriggerAuthChallenge;
+
+      const proof = await signTriggerAuthChallenge(challenge);
+
+      const craftResponse = await fetch("/api/trigger/oco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "craft",
+          owner,
+          positionId: position.id,
+          proof
+        })
+      });
+      const craftPayload = await craftResponse.json();
+      if (!craftResponse.ok) throw new Error(craftPayload.error || "Unable to craft trigger deposit.");
+
+      const signedDepositTx = await signVersionedTransactionToBase64(
+        deserializeTransaction(craftPayload.deposit.transaction as string)
+      );
+
+      const confirmResponse = await fetch("/api/trigger/oco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "confirm",
+          owner,
+          positionId: position.id,
+          authToken: craftPayload.authToken,
+          depositRequestId: craftPayload.deposit.requestId,
+          depositSignedTx: signedDepositTx
+        })
+      });
+      const confirmPayload = await confirmResponse.json();
+      if (!confirmResponse.ok) throw new Error(confirmPayload.error || "Unable to create TP/SL trigger order.");
+
+      const updated = normalizePosition(confirmPayload.position);
+      if (updated) {
+        commitPositions((previous) => upsertOpenPosition(previous, updated));
+      }
+
+      setTriggerAuthTokens((previous) => ({ ...previous, [position.id]: craftPayload.authToken as string }));
+      if (options?.refreshAfter ?? true) {
+        await refreshPositions();
+      }
+      return true;
+    } catch (err) {
+      if (!options?.suppressErrorReport) {
+        setError(describeWalletError(err, "Unable to arm TP/SL order."));
+      }
+      return false;
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function armAllTriggerOrders() {
+    if (armingAll) return;
+    setError("");
+
+    if (tradeEngine !== "jupiter") {
+      setError("TP/SL trigger orders are currently supported only on the Jupiter engine.");
+      return;
+    }
+
+    const openWithoutTrigger = positions.open.filter((position) => position.status === "open" && !position.triggerOrder);
+    if (openWithoutTrigger.length === 0) {
+      setError("No open positions without TP/SL orders.");
+      return;
+    }
+
+    setArmingAll(true);
+
+    let armed = 0;
+    const failed: string[] = [];
+
+    try {
+      for (const position of openWithoutTrigger) {
+        const success = await armTriggerOrder(position, {
+          refreshAfter: false,
+          suppressErrorReset: true,
+          suppressErrorReport: true
+        });
+        if (success) {
+          armed += 1;
+        } else {
+          failed.push(position.tokenSymbol);
+        }
+      }
+
+      await refreshPositions();
+
+      if (failed.length > 0) {
+        const successPrefix = armed > 0 ? `${armed} armed. ` : "";
+        setError(`${successPrefix}Failed to arm TP/SL for: ${failed.join(", ")}.`);
+      }
+    } finally {
+      setArmingAll(false);
+    }
+  }
+
+  async function syncTriggerOrder(position: Position) {
+    setError("");
+    setBusy(`sync:${position.id}`);
+
+    try {
+      const authToken = await getTriggerAuthTokenForPosition(position.id);
+
+      const response = await fetch("/api/trigger/oco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sync",
+          owner,
+          positionId: position.id,
+          authToken
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Unable to sync trigger order state.");
+
+      const updated = normalizePosition(payload.position);
+      if (updated) {
+        commitPositions((previous) => upsertOpenPosition(previous, updated));
+      }
+    } catch (err) {
+      setError(describeWalletError(err, "Unable to sync TP/SL status."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function cancelTriggerOrder(position: Position) {
+    setError("");
+    setBusy(`cancel:${position.id}`);
+
+    try {
+      const authToken = await getTriggerAuthTokenForPosition(position.id);
+
+      const cancelCraftResponse = await fetch("/api/trigger/oco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cancelCraft",
+          owner,
+          positionId: position.id,
+          authToken
+        })
+      });
+      const cancelCraftPayload = await cancelCraftResponse.json();
+      if (!cancelCraftResponse.ok) throw new Error(cancelCraftPayload.error || "Unable to start TP/SL cancellation.");
+
+      const cancelSignedTx = await signVersionedTransactionToBase64(
+        deserializeTransaction(cancelCraftPayload.cancellation.transaction as string)
+      );
+
+      const cancelConfirmResponse = await fetch("/api/trigger/oco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cancelConfirm",
+          owner,
+          positionId: position.id,
+          authToken,
+          cancelRequestId: cancelCraftPayload.cancellation.requestId,
+          cancelSignedTx
+        })
+      });
+      const cancelConfirmPayload = await cancelConfirmResponse.json();
+      if (!cancelConfirmResponse.ok) throw new Error(cancelConfirmPayload.error || "Unable to confirm TP/SL cancellation.");
+
+      const updated = normalizePosition(cancelConfirmPayload.position);
+      if (updated) {
+        commitPositions((previous) => upsertOpenPosition(previous, updated));
+      }
+
+      setTriggerAuthTokens((previous) => {
+        const next = { ...previous };
+        delete next[position.id];
+        return next;
+      });
+
+      await refreshPositions();
+    } catch (err) {
+      setError(describeWalletError(err, "Unable to cancel TP/SL order."));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function getTriggerAuthTokenForPosition(positionId: string) {
+    const cached = triggerAuthTokens[positionId];
+    if (cached) return cached;
+
+    const challengeType = resolveTriggerChallengeType();
+    const challengeResponse = await fetch("/api/trigger/oco", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "challenge",
+        owner,
+        challengeType
+      })
+    });
+    const challengePayload = await challengeResponse.json();
+    if (!challengeResponse.ok) throw new Error(challengePayload.error || "Unable to start trigger auth.");
+
+    const proof = await signTriggerAuthChallenge(challengePayload.challenge as TriggerAuthChallenge);
+
+    const authResponse = await fetch("/api/trigger/oco", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "authenticate",
+        owner,
+        proof
+      })
+    });
+    const authPayload = await authResponse.json();
+    if (!authResponse.ok) throw new Error(authPayload.error || "Unable to authenticate trigger session.");
+
+    const token = authPayload.authToken as string;
+    setTriggerAuthTokens((previous) => ({ ...previous, [positionId]: token }));
+    return token;
+  }
+
+  function resolveTriggerChallengeType(): "message" | "transaction" {
+    if ((publicKey && signMessage) || privyConnectedSolanaWallet) {
+      return "message";
+    }
+    return "transaction";
+  }
+
+  async function signTriggerAuthChallenge(challenge: TriggerAuthChallenge) {
+    if (challenge.type === "message") {
+      const messageBytes = new TextEncoder().encode(challenge.challenge);
+
+      if (publicKey && signMessage) {
+        const signature = await signMessage(messageBytes);
+        return {
+          type: "message" as const,
+          signature: bs58.encode(signature)
+        };
+      }
+
+      if (privyConnectedSolanaWallet) {
+        const signed = await privyConnectedSolanaWallet.signMessage({
+          message: messageBytes
+        });
+        return {
+          type: "message" as const,
+          signature: bs58.encode(signed.signature)
+        };
+      }
+
+      throw new Error("The connected wallet does not support message signing for trigger auth.");
+    }
+
+    const signedTransaction = await signVersionedTransactionToBase64(
+      deserializeTransaction(challenge.transaction)
+    );
+
+    return {
+      type: "transaction" as const,
+      signedTransaction
+    };
+  }
+
+  async function signVersionedTransactionToBase64(transaction: VersionedTransaction) {
+    if (publicKey && signTransaction) {
+      const signed = await signTransaction(transaction);
+      return bytesToBase64(signed.serialize());
+    }
+
+    if (privyConnectedSolanaWallet) {
+      const signed = await privyConnectedSolanaWallet.signTransaction({
+        transaction: transaction.serialize(),
+        chain: resolvePrivySolanaChain(cluster)
+      });
+      return bytesToBase64(signed.signedTransaction);
+    }
+
+    throw new Error("Connect a Solana wallet that can sign transactions.");
+  }
+
   async function sendSandboxSignature(label: string) {
-    if (!publicKey) throw new Error("Connect Solflare first.");
+    if (!owner) throw new Error("Log in and connect a Solana wallet first.");
+
+    const ownerPubkey = new PublicKey(owner);
 
     const transaction = new Transaction().add(
       SystemProgram.transfer({
-        fromPubkey: publicKey,
-        toPubkey: publicKey,
+        fromPubkey: ownerPubkey,
+        toPubkey: ownerPubkey,
         lamports: 0
       })
     );
-    transaction.feePayer = publicKey;
+    transaction.feePayer = ownerPubkey;
     transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-    const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
-    await connection.confirmTransaction(signature, "confirmed");
+    if (publicKey) {
+      const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
+      await waitForSignatureConfirmationHttp(connection, signature);
+      console.info(label, signature);
+      return signature;
+    }
+
+    if (!privyConnectedSolanaWallet) {
+      throw new Error("Connect Solflare, Phantom, or Backpack in Privy first.");
+    }
+
+    const unsignedTransaction = transaction.serialize({
+      requireAllSignatures: false,
+      verifySignatures: false
+    });
+    const signed = await privySignAndSendTransaction({
+      transaction: unsignedTransaction,
+      wallet: privyConnectedSolanaWallet,
+      chain: resolvePrivySolanaChain(cluster)
+    });
+    const signature = bs58.encode(signed.signature);
+    await waitForSignatureConfirmationHttp(connection, signature);
     console.info(label, signature);
     return signature;
   }
 
   async function signAndSendVersionedTransaction(transaction: VersionedTransaction) {
-    if (!signTransaction) {
-      throw new Error("Your wallet does not expose signTransaction. Try reconnecting Solflare.");
+    if (!publicKey && privyConnectedSolanaWallet) {
+      const signed = await privySignAndSendTransaction({
+        transaction: transaction.serialize(),
+        wallet: privyConnectedSolanaWallet,
+        chain: resolvePrivySolanaChain(cluster),
+        options: { skipPreflight: true, maxRetries: 3 }
+      });
+      const signature = bs58.encode(signed.signature);
+      await waitForSignatureConfirmationHttp(connection, signature);
+      return signature;
     }
 
-    const signed = await signTransaction(transaction);
-    const signedSignature = bs58.encode(signed.signatures[0]);
+    // Prefer wallet-native broadcast path first. Some public RPCs reject direct sendRawTransaction with 403.
+    try {
+      const signature = await sendTransaction(transaction, connection, {
+        skipPreflight: true,
+        maxRetries: 3
+      });
+      await waitForSignatureConfirmationHttp(connection, signature);
+      return signature;
+    } catch (walletBroadcastError) {
+      if (isUserRejectedError(walletBroadcastError)) {
+        throw walletBroadcastError;
+      }
 
-    const existing = await connection.getSignatureStatus(signedSignature, { searchTransactionHistory: true });
-    if (existing.value?.confirmationStatus || existing.value?.err === null) {
-      return signedSignature;
+      if (!signTransaction) {
+        throw walletBroadcastError;
+      }
+
+      const signed = await signTransaction(transaction);
+      const signedSignature = bs58.encode(signed.signatures[0]);
+      const serialized = signed.serialize();
+
+      try {
+        const signature = await connection.sendRawTransaction(serialized, {
+          skipPreflight: true,
+          maxRetries: 3
+        }).catch((error: Error) => {
+          if (error.message.toLowerCase().includes("already been processed")) return signedSignature;
+          throw error;
+        });
+        await waitForSignatureConfirmationHttp(connection, signature);
+        return signature;
+      } catch (rpcBroadcastError) {
+        if (isAccessForbiddenError(walletBroadcastError) || isAccessForbiddenError(rpcBroadcastError)) {
+          try {
+            const relayResponse = await fetch("/api/tx/broadcast", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                signedTransaction: bytesToBase64(serialized)
+              })
+            });
+            const relayPayload = await relayResponse.json();
+            if (!relayResponse.ok || !relayPayload.signature) {
+              throw new Error(relayPayload.error || "Relay broadcast failed.");
+            }
+            return relayPayload.signature as string;
+          } catch (relayError) {
+            throw new Error(
+              [
+                "RPC rejected transaction broadcast with 403 Access forbidden.",
+                relayError instanceof Error ? relayError.message : "Relay broadcast failed.",
+                "Use a write-enabled mainnet RPC in NEXT_PUBLIC_SOLANA_RPC_URL and restart the app."
+              ].join(" ")
+            );
+          }
+        }
+        throw rpcBroadcastError;
+      }
     }
-
-    const simulation = await connection.simulateTransaction(signed, {
-      sigVerify: false,
-      replaceRecentBlockhash: false
-    });
-
-    if (simulation.value.err) {
-      const alreadyProcessed = JSON.stringify(simulation.value.err).toLowerCase().includes("already") || simulation.value.logs?.join("\n").toLowerCase().includes("already");
-      if (alreadyProcessed) return signedSignature;
-
-      const logs = simulation.value.logs?.slice(-8).join("\n") || "No simulation logs returned.";
-      throw new Error(`Transaction simulation failed: ${JSON.stringify(simulation.value.err)}\n${logs}`);
-    }
-
-    const signature = await connection.sendRawTransaction(signed.serialize(), {
-      skipPreflight: true,
-      maxRetries: 3
-    }).catch((error: Error) => {
-      if (error.message.toLowerCase().includes("already been processed")) return signedSignature;
-      throw error;
-    });
-    await connection.confirmTransaction(signature, "confirmed");
-    return signature;
   }
 
   return (
@@ -339,12 +826,21 @@ export default function Home() {
         <div className="chassis-frame">
           <header className="device-head header-shell panel-shell">
             <div className="brand">
-              <span className="brand-kicker">LETAL-01</span>
-              <h1>Token Letal</h1>
+              <span className="brand-kicker">METAL-01</span>
+              <div className="brand-logo-wrap">
+                <Image
+                  className="brand-logo"
+                  src="/token-metal-logo-transparent.png"
+                  alt="Token-Metal logo"
+                  width={866}
+                  height={288}
+                  priority
+                />
+              </div>
               <span>The beginner-friendly Solana investment dApp | Powered by La Familia</span>
             </div>
             <div className="wallet-dock">
-              <ClientWalletButton />
+              <PrivyLoginButton />
             </div>
           </header>
 
@@ -451,10 +947,28 @@ export default function Home() {
                 </div>
               </div>
 
-              <button className="key-button" disabled={!connected || busy === "recommendations" || investAmount <= 0} onClick={requestRecommendations}>
-                {busy === "recommendations" ? "CALLING NANSEN..." : "GET OPPORTUNITIES"}
-              </button>
-              <p className="console-note">Invest amount: {investDisplay}. Solflare enabled first.</p>
+              <div className={`key-button-wrap ${needsUsdcFunding ? "show-deposit-hint" : ""}`}>
+                <button className="key-button" disabled={!canRequestOpportunities} onClick={requestRecommendations}>
+                  {busy === "recommendations" ? "CALLING NANSEN..." : "GET OPPORTUNITIES"}
+                </button>
+                {needsUsdcFunding ? (
+                  <div className="hover-deposit-modal" role="tooltip" aria-live="polite">
+                    <strong>Unable to continue</strong>
+                    <p>{fundingBlockerMessage}</p>
+                  </div>
+                ) : null}
+              </div>
+              {!walletConnected ? (
+                <p className="console-note">
+                  {signedInWithoutWallet
+                    ? "Signed in. Link a Solana wallet in Privy to load your balance."
+                    : "Log in and connect Solflare or Phantom to unlock opportunities."}
+                </p>
+              ) : needsUsdcFunding ? (
+                <p className="console-note">{fundingBlockerMessage}</p>
+              ) : (
+                <p className="console-note">Invest amount: {investDisplay}.</p>
+              )}
               {error ? <pre className="error error-screen">{error}</pre> : null}
             </aside>
 
@@ -500,6 +1014,12 @@ export default function Home() {
                           <div className="review">
                             <Metric label="Holding period" value={preparedTrade.recommendation.expectedHoldingPeriod} />
                             <Metric label={`${capitalSymbol} amount`} value={`${preparedTrade.amountUsdc.toFixed(capitalPrecision)} ${capitalSymbol}`} />
+                            {preparedTrade.commissionUsdc ? (
+                              <Metric
+                                label="Platform fee (0.5%)"
+                                value={`${preparedTrade.commissionUsdc.toFixed(capitalPrecision)} ${capitalSymbol}`}
+                              />
+                            ) : null}
                             <div className="metric trade-plan-metric">
                               <span>TP / SL / Trail</span>
                               <strong>
@@ -573,8 +1093,13 @@ export default function Home() {
                       positionsLastUpdated={positionsLastUpdated}
                       capitalSymbol={capitalSymbol}
                       busy={busy}
+                      armingAll={armingAll}
                       onClose={closeNow}
                       onLocalClose={closeLocal}
+                      onArmTrigger={armTriggerOrder}
+                      onArmAllTrigger={armAllTriggerOrders}
+                      onSyncTrigger={syncTriggerOrder}
+                      onCancelTrigger={cancelTriggerOrder}
                       onInspect={setInspectedPosition}
                     />
                   </div>
@@ -609,7 +1134,7 @@ export default function Home() {
         >
           <article className="position-opened-popup">
             <span className="position-opened-kicker">TRADE CONFIRMED</span>
-            <h3 id="position-opened-title">Postion Succesfully Opened</h3>
+            <h3 id="position-opened-title">Position Successfully Opened</h3>
             <p>
               {openedPositionNotice.tokenSymbol} was added to your open positions.
             </p>
@@ -658,6 +1183,8 @@ export default function Home() {
               <div className="position-details-field"><span>Take Profit</span><strong>{inspectedPosition.takeProfit}</strong></div>
               <div className="position-details-field"><span>Stop Loss</span><strong>{inspectedPosition.stopLoss}</strong></div>
               <div className="position-details-field"><span>Trailing Stop</span><strong>{inspectedPosition.trailingStop || "-"}</strong></div>
+              <div className="position-details-field"><span>Trigger State</span><strong>{inspectedPosition.triggerOrder?.orderState || "not armed"}</strong></div>
+              <div className="position-details-field"><span>Trigger Order ID</span><strong>{inspectedPosition.triggerOrder?.orderId || "-"}</strong></div>
               <div className="position-details-field"><span>Holding Period</span><strong>{inspectedPosition.expectedHoldingPeriod}</strong></div>
               <div className="position-details-field"><span>Risk Level</span><strong>{inspectedPosition.riskLevel}</strong></div>
               <div className="position-details-field"><span>Opened At</span><strong>{formatDateTime(inspectedPosition.openedAt)}</strong></div>
@@ -704,18 +1231,29 @@ function PositionsPanel({
   positionsLastUpdated,
   capitalSymbol,
   busy,
+  armingAll,
   onClose,
   onLocalClose,
+  onArmTrigger,
+  onArmAllTrigger,
+  onSyncTrigger,
+  onCancelTrigger,
   onInspect
 }: {
   positions: { open: Position[]; closed: Position[] };
   positionsLastUpdated: Date | null;
   capitalSymbol: string;
   busy: string;
+  armingAll: boolean;
   onClose: (position: Position) => void;
   onLocalClose: (position: Position) => void;
+  onArmTrigger: (position: Position) => Promise<boolean>;
+  onArmAllTrigger: () => void;
+  onSyncTrigger: (position: Position) => void;
+  onCancelTrigger: (position: Position) => void;
   onInspect: (position: Position) => void;
 }) {
+  const openWithoutTriggerCount = positions.open.filter((position) => !position.triggerOrder).length;
   const closedPositions = [...positions.closed].sort((a, b) => {
     const aTime = new Date(a.closedAt || a.openedAt).getTime();
     const bTime = new Date(b.closedAt || b.openedAt).getTime();
@@ -726,10 +1264,20 @@ function PositionsPanel({
     <section className="positions-panel">
       <div className="positions-panel-head">
         <h3>Positions</h3>
-        <span>
-          {positions.open.length} open / {positions.closed.length} closed
-          {positionsLastUpdated ? ` - ${positionsLastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : " - refresh 60s"}
-        </span>
+        <div className="positions-panel-head-actions">
+          <span>
+            {positions.open.length} open / {positions.closed.length} closed
+            {positionsLastUpdated ? ` - ${positionsLastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : " - refresh 60s"}
+          </span>
+          <button
+            className="secondary subtle arm-all-button"
+            type="button"
+            disabled={armingAll || openWithoutTriggerCount === 0}
+            onClick={onArmAllTrigger}
+          >
+            {armingAll ? "Arming all..." : "Arm TP/SL All"}
+          </button>
+        </div>
       </div>
       <div className="position-columns">
         <div>
@@ -742,7 +1290,14 @@ function PositionsPanel({
                 position={position}
                 onClose={() => onClose(position)}
                 onLocalClose={() => onLocalClose(position)}
+                globalBusy={armingAll}
                 busy={busy === position.id}
+                arming={busy === `arm:${position.id}`}
+                syncingTrigger={busy === `sync:${position.id}`}
+                cancellingTrigger={busy === `cancel:${position.id}`}
+                onArmTrigger={() => onArmTrigger(position)}
+                onSyncTrigger={() => onSyncTrigger(position)}
+                onCancelTrigger={() => onCancelTrigger(position)}
                 capitalSymbol={capitalSymbol}
                 onInspect={() => onInspect(position)}
               />
@@ -758,7 +1313,11 @@ function PositionsPanel({
                 key={position.id}
                 position={position}
                 onClose={() => undefined}
+                globalBusy={false}
                 busy={false}
+                arming={false}
+                syncingTrigger={false}
+                cancellingTrigger={false}
                 closed
                 capitalSymbol={capitalSymbol}
                 onInspect={() => onInspect(position)}
@@ -775,7 +1334,14 @@ function PositionRow({
   position,
   onClose,
   onLocalClose,
+  globalBusy,
   busy,
+  arming,
+  syncingTrigger,
+  cancellingTrigger,
+  onArmTrigger,
+  onSyncTrigger,
+  onCancelTrigger,
   capitalSymbol,
   onInspect,
   closed = false
@@ -783,7 +1349,14 @@ function PositionRow({
   position: Position;
   onClose: () => void;
   onLocalClose?: () => void;
+  globalBusy: boolean;
   busy: boolean;
+  arming: boolean;
+  syncingTrigger: boolean;
+  cancellingTrigger: boolean;
+  onArmTrigger?: () => void;
+  onSyncTrigger?: () => void;
+  onCancelTrigger?: () => void;
   capitalSymbol: string;
   onInspect: () => void;
   closed?: boolean;
@@ -810,24 +1383,31 @@ function PositionRow({
       <div className={pnlClass}><span>PnL {valueLabel}</span><br />{formatCompactCapitalValue(position.pnlUsd, capitalSymbol, "pnl")}</div>
       <div className={pnlClass}><span>PnL %</span><br />{pct(position.pnlPercent)}</div>
       <div><span>TP / SL</span><br />{position.takeProfit} / {position.stopLoss}</div>
+      <div>
+        <span>TP/SL Order</span>
+        <br />
+        {position.triggerOrder
+          ? `${position.triggerOrder.orderState}${position.triggerOrder.rawState ? ` (${position.triggerOrder.rawState})` : ""}`
+          : "not armed"}
+      </div>
       {closed ? (
         <span className="hint">Closed</span>
       ) : (
         <div className="position-actions">
           <button
             className="secondary"
-            disabled={busy}
+            disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || Boolean(position.triggerOrder)}
             onClick={(event) => {
               event.stopPropagation();
               onClose();
             }}
           >
-            {busy ? "Closing..." : "Close now"}
+            {busy ? "Closing..." : position.triggerOrder ? "Cancel TP/SL first" : "Close now"}
           </button>
           {onLocalClose ? (
             <button
               className="secondary subtle"
-              disabled={busy}
+              disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || Boolean(position.triggerOrder)}
               onClick={(event) => {
                 event.stopPropagation();
                 onLocalClose();
@@ -836,10 +1416,104 @@ function PositionRow({
               Local close
             </button>
           ) : null}
+          {position.triggerOrder ? (
+            <button
+              className="secondary subtle"
+              disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || !onSyncTrigger}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSyncTrigger?.();
+              }}
+            >
+              {syncingTrigger ? "Syncing..." : "Sync TP/SL"}
+            </button>
+          ) : null}
+          {position.triggerOrder ? (
+            <button
+              className="secondary subtle"
+              disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || !onCancelTrigger}
+              onClick={(event) => {
+                event.stopPropagation();
+                onCancelTrigger?.();
+              }}
+            >
+              {cancellingTrigger ? "Cancelling..." : "Cancel TP/SL"}
+            </button>
+          ) : (
+            <button
+              className="secondary subtle"
+              disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || !onArmTrigger}
+              onClick={(event) => {
+                event.stopPropagation();
+                onArmTrigger?.();
+              }}
+            >
+              {arming ? "Arming..." : "Arm TP/SL"}
+            </button>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+function emptyPositionBuckets(): PositionBuckets {
+  return { open: [], closed: [] };
+}
+
+function normalizePositionBuckets(value: unknown): PositionBuckets {
+  const candidate = (value && typeof value === "object") ? value as { open?: unknown; closed?: unknown } : {};
+  const open = Array.isArray(candidate.open) ? candidate.open.map(normalizePosition).filter(Boolean) as Position[] : [];
+  const closed = Array.isArray(candidate.closed) ? candidate.closed.map(normalizePosition).filter(Boolean) as Position[] : [];
+  return mergePositionBuckets({ open, closed }, emptyPositionBuckets());
+}
+
+function normalizePosition(value: unknown): Position | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<Position>;
+  if (!candidate.id || !candidate.owner || !candidate.status || !candidate.tokenSymbol) return null;
+  return candidate as Position;
+}
+
+function mergePositionBuckets(primary: PositionBuckets, secondary: PositionBuckets): PositionBuckets {
+  const open = dedupePositionsById([...primary.open, ...secondary.open]);
+  const closed = dedupePositionsById([...primary.closed, ...secondary.closed]);
+  const closedIds = new Set(closed.map((position) => position.id));
+
+  return {
+    open: open.filter((position) => !closedIds.has(position.id)),
+    closed
+  };
+}
+
+function upsertOpenPosition(previous: PositionBuckets, position: Position): PositionBuckets {
+  const open = dedupePositionsById([position, ...previous.open]);
+  return {
+    open,
+    closed: previous.closed.filter((item) => item.id !== position.id)
+  };
+}
+
+function upsertClosedPosition(previous: PositionBuckets, position: Position): PositionBuckets {
+  const closed = dedupePositionsById([position, ...previous.closed]);
+  const closedIds = new Set(closed.map((item) => item.id));
+  return {
+    open: previous.open.filter((item) => !closedIds.has(item.id)),
+    closed
+  };
+}
+
+function dedupePositionsById(positions: Position[]): Position[] {
+  const seen = new Set<string>();
+  const unique: Position[] = [];
+
+  for (const position of positions) {
+    if (!position?.id || seen.has(position.id)) continue;
+    seen.add(position.id);
+    unique.push(position);
+  }
+
+  return unique;
 }
 
 function formatCapitalValue(value: number | null | undefined, symbol: string, mode: "price" | "pnl") {
@@ -907,4 +1581,63 @@ function describeWalletError(error: unknown, fallback: string) {
   }
 
   return parts.join("\n");
+}
+
+function isAccessForbiddenError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return message.includes("access forbidden") || message.includes("403");
+}
+
+function isUserRejectedError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("rejected") ||
+    message.includes("declined") ||
+    message.includes("cancelled") ||
+    message.includes("canceled") ||
+    message.includes("denied")
+  );
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function waitForSignatureConfirmationHttp(
+  connection: Connection,
+  signature: string,
+  timeoutMs = 75_000,
+  pollIntervalMs = 1_500
+) {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const statusResponse = await connection.getSignatureStatuses([signature], {
+      searchTransactionHistory: true
+    });
+    const status = statusResponse.value[0];
+
+    if (status?.err) {
+      throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
+    }
+
+    if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
+      return;
+    }
+
+    await sleep(pollIntervalMs);
+  }
+
+  throw new Error(`Transaction confirmation timed out for ${signature}`);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

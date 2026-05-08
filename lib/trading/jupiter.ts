@@ -1,3 +1,6 @@
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { PublicKey } from "@solana/web3.js";
+import { COMMISSION_BPS, TREASURY_WALLET, computeCommission, isCommissionEnabled } from "@/lib/commission";
 import { appConfig, requireEnv } from "@/lib/config";
 import { fromRawAmount, toRawAmount } from "@/lib/number";
 import type { PreparedTrade, TokenRecommendation } from "@/lib/types";
@@ -8,6 +11,7 @@ interface BuildSwapParams {
   inputMint: string;
   outputMint: string;
   amountRaw: string;
+  applyCommission?: boolean;
 }
 
 export async function prepareBuyTrade(owner: string, amountUsdc: number, recommendation: TokenRecommendation): Promise<PreparedTrade> {
@@ -41,6 +45,7 @@ export async function prepareBuyTrade(owner: string, amountUsdc: number, recomme
       outputMint: appConfig.raydiumDevnetOutputMint || recommendation.mintAddress,
       amountUsdc,
       amountUsdcRaw,
+      commissionUsdc: 0,
       expectedTokenAmountRaw: raydiumSwap.expectedOutputRaw,
       expectedTokenAmountUi: raydiumSwap.expectedOutputUi,
       expectedReturnUsd: amountUsdc * (upside / 100),
@@ -56,7 +61,8 @@ export async function prepareBuyTrade(owner: string, amountUsdc: number, recomme
     owner,
     inputMint: appConfig.usdcMint,
     outputMint: recommendation.mintAddress,
-    amountRaw: amountUsdcRaw
+    amountRaw: amountUsdcRaw,
+    applyCommission: true
   });
   const expectedTokenAmountRaw = String((swap.quoteResponse as { outAmount?: string }).outAmount || "0");
   const tokenDecimals = recommendation.tokenDecimals ?? 6;
@@ -71,6 +77,7 @@ export async function prepareBuyTrade(owner: string, amountUsdc: number, recomme
     outputMint: recommendation.mintAddress,
     amountUsdc,
     amountUsdcRaw,
+    commissionUsdc: isCommissionEnabled() ? computeCommission(amountUsdc) : 0,
     expectedTokenAmountRaw,
     expectedTokenAmountUi,
     expectedReturnUsd: amountUsdc * (upside / 100),
@@ -135,6 +142,7 @@ function prepareDryRunBuyTrade(owner: string, amountUsdc: number, amountUsdcRaw:
     outputMint: recommendation.mintAddress,
     amountUsdc,
     amountUsdcRaw,
+    commissionUsdc: 0,
     expectedTokenAmountRaw,
     expectedTokenAmountUi,
     expectedReturnUsd: amountUsdc * (upside / 100),
@@ -147,16 +155,25 @@ function prepareDryRunBuyTrade(owner: string, amountUsdc: number, amountUsdcRaw:
 }
 
 async function buildJupiterSwap(params: BuildSwapParams) {
-  const quoteResponse = await getQuote(params.inputMint, params.outputMint, params.amountRaw);
+  const quoteResponse = await getQuote(params.inputMint, params.outputMint, params.amountRaw, {
+    applyCommission: params.applyCommission
+  });
+  const swapBody: Record<string, unknown> = {
+    quoteResponse,
+    userPublicKey: params.owner,
+    dynamicComputeUnitLimit: true,
+    prioritizationFeeLamports: "auto"
+  };
+
+  if (params.applyCommission && isCommissionEnabled()) {
+    swapBody.feeAccount = resolveCommissionFeeAccount(params.inputMint);
+    swapBody.platformFeeBps = COMMISSION_BPS;
+  }
+
   const response = await fetch(`${appConfig.jupiterSwapBaseUrl}/swap`, {
     method: "POST",
     headers: jupiterHeaders(),
-    body: JSON.stringify({
-      quoteResponse,
-      userPublicKey: params.owner,
-      dynamicComputeUnitLimit: true,
-      prioritizationFeeLamports: "auto"
-    }),
+    body: JSON.stringify(swapBody),
     cache: "no-store"
   });
 
@@ -173,7 +190,12 @@ async function buildJupiterSwap(params: BuildSwapParams) {
   return { quoteResponse, swapTransaction: payload.swapTransaction };
 }
 
-async function getQuote(inputMint: string, outputMint: string, amountRaw: string) {
+async function getQuote(
+  inputMint: string,
+  outputMint: string,
+  amountRaw: string,
+  options: { applyCommission?: boolean } = {}
+) {
   requireEnv(appConfig.jupiterSwapBaseUrl, "JUPITER_SWAP_BASE_URL");
 
   const url = new URL(`${appConfig.jupiterSwapBaseUrl}/quote`);
@@ -182,6 +204,12 @@ async function getQuote(inputMint: string, outputMint: string, amountRaw: string
   url.searchParams.set("amount", amountRaw);
   url.searchParams.set("slippageBps", String(appConfig.fixedSlippageBps));
   url.searchParams.set("restrictIntermediateTokens", "true");
+
+  if (options.applyCommission && isCommissionEnabled()) {
+    url.searchParams.set("platformFeeBps", String(COMMISSION_BPS));
+    // Required for platform fees when a route includes Token2022 tokens.
+    url.searchParams.set("instructionVersion", "V2");
+  }
 
   const response = await fetch(url, {
     headers: jupiterHeaders(),
@@ -194,6 +222,16 @@ async function getQuote(inputMint: string, outputMint: string, amountRaw: string
   }
 
   return response.json() as Promise<Record<string, unknown>>;
+}
+
+function resolveCommissionFeeAccount(inputMint: string): string {
+  try {
+    const mint = new PublicKey(inputMint);
+    const treasuryWallet = new PublicKey(TREASURY_WALLET);
+    return getAssociatedTokenAddressSync(mint, treasuryWallet, false).toBase58();
+  } catch {
+    throw new Error("Commission is enabled, but TREASURY_WALLET or input mint is invalid.");
+  }
 }
 
 function jupiterHeaders() {

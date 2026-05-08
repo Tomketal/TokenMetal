@@ -4,7 +4,7 @@ import "./globals.css";
 import { WalletProviders } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Token Letal",
+  title: "Token-Metal",
   description: "Simple Solana investing assistant powered by Nansen recommendations."
 };
 

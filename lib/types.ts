@@ -21,6 +21,17 @@ export const holdingPeriods = [
 export type RiskProfile = (typeof riskProfiles)[number];
 export type HoldingPeriod = (typeof holdingPeriods)[number];
 export type PositionStatus = "open" | "closed";
+export type TriggerOrderType = "oco";
+export type TriggerOrderState =
+  | "pending"
+  | "open"
+  | "executing"
+  | "filled"
+  | "pending_withdraw"
+  | "cancelled"
+  | "expired"
+  | "failed"
+  | "unknown";
 
 export interface RecommendationRequest {
   walletAddress: string;
@@ -72,6 +83,7 @@ export interface PreparedTrade {
   outputMint: string;
   amountUsdc: number;
   amountUsdcRaw: string;
+  commissionUsdc?: number;
   expectedTokenAmountRaw: string;
   expectedTokenAmountUi: number;
   expectedReturnUsd: number;
@@ -107,8 +119,28 @@ export interface Position {
   closeSignature?: string;
   status: PositionStatus;
   engine?: string;
+  triggerOrder?: PositionTriggerOrder;
   openedAt: string;
   closedAt?: string;
+}
+
+export interface PositionTriggerOrder {
+  provider: "jupiter-trigger-v2";
+  orderType: TriggerOrderType;
+  orderId: string;
+  orderState: TriggerOrderState;
+  rawState?: string;
+  txSignature?: string;
+  inputAmountRaw: string;
+  inputMint: string;
+  outputMint: string;
+  triggerMint: string;
+  tpPriceUsd: number;
+  slPriceUsd: number;
+  expiresAt: number;
+  createdAt: string;
+  updatedAt: string;
+  lastSyncedAt?: string;
 }
 
 export interface ClosePrepareRequest {

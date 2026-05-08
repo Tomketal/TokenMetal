@@ -49,7 +49,14 @@ Verified from listing on April 23, 2026:
 > https://github.com/Tomketal
 
 **Colosseum Crowdedness Score**
-> Public Drive folder for crowdedness screenshot and response files: https://drive.google.com/drive/folders/19CyDynMwqx7B3frZBWXQx10nZke7NW0t?usp=sharing
+> Copilot result (generated April 24, 2026): top crowdedness = 270, top cluster = "AI-Powered Solana DeFi Assistants" (`v1-c22`), average crowdedness across top 10 matches = 248.9.
+>
+> Evidence files:
+> - `grants/superteam-agentic-engineering/copilot/crowdedness-summary.md`
+> - `grants/superteam-agentic-engineering/copilot/search-projects-top10.json`
+>
+> Public Drive folder for crowdedness screenshot and response files:
+> https://drive.google.com/drive/folders/19CyDynMwqx7B3frZBWXQx10nZke7NW0t?usp=sharing
 
 **AI Session Transcript**
 > Attached as `codex-session.jsonl` from project root.

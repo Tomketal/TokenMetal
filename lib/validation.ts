@@ -54,3 +54,61 @@ export const closeRequestSchema = z.discriminatedUnion("action", [
     signature: z.string().min(32)
   })
 ]);
+
+const triggerAuthProofSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("message"),
+    signature: z.string().min(16)
+  }),
+  z.object({
+    type: z.literal("transaction"),
+    signedTransaction: z.string().min(16)
+  })
+]);
+
+export const triggerOcoRequestSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("challenge"),
+    owner: z.string().min(32),
+    challengeType: z.enum(["message", "transaction"]).optional()
+  }),
+  z.object({
+    action: z.literal("authenticate"),
+    owner: z.string().min(32),
+    proof: triggerAuthProofSchema
+  }),
+  z.object({
+    action: z.literal("craft"),
+    owner: z.string().min(32),
+    positionId: z.string(),
+    proof: triggerAuthProofSchema
+  }),
+  z.object({
+    action: z.literal("confirm"),
+    owner: z.string().min(32),
+    positionId: z.string(),
+    authToken: z.string().min(16),
+    depositRequestId: z.string().min(8),
+    depositSignedTx: z.string().min(16)
+  }),
+  z.object({
+    action: z.literal("sync"),
+    owner: z.string().min(32),
+    positionId: z.string(),
+    authToken: z.string().min(16)
+  }),
+  z.object({
+    action: z.literal("cancelCraft"),
+    owner: z.string().min(32),
+    positionId: z.string(),
+    authToken: z.string().min(16)
+  }),
+  z.object({
+    action: z.literal("cancelConfirm"),
+    owner: z.string().min(32),
+    positionId: z.string(),
+    authToken: z.string().min(16),
+    cancelRequestId: z.string().min(8),
+    cancelSignedTx: z.string().min(16)
+  })
+]);

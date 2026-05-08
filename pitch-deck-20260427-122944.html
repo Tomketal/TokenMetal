@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token Metal - Hackathon Pitch Deck</title>
+  <style>
+    :root {
+      --c-bg: #0f1729;
+      --c-bg-alt: #131d33;
+      --c-bg-card: #182240;
+      --c-surface: #1e2a4a;
+      --c-border: rgba(255,255,255,0.09);
+
+      --c-primary: #3b82f6;
+      --c-primary-dim: rgba(59,130,246,0.14);
+      --c-accent: #14b8a6;
+      --c-accent-dim: rgba(20,184,166,0.14);
+      --c-danger: #ef4444;
+      --c-warning: #f59e0b;
+
+      --c-text: #f1f5f9;
+      --c-text-secondary: rgba(241,245,249,0.72);
+      --c-text-muted: rgba(241,245,249,0.45);
+
+      --f-hero: 84px;
+      --f-h1: 58px;
+      --f-h2: 42px;
+      --f-h3: 32px;
+      --f-body: 28px;
+      --f-small: 22px;
+      --f-caption: 17px;
+
+      --font-display: "Sora", "Avenir Next", "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+
+      --s-xs: 8px;
+      --s-sm: 16px;
+      --s-md: 28px;
+      --s-lg: 44px;
+      --s-xl: 58px;
+      --s-2xl: 84px;
+
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --duration-enter: 0.58s;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: var(--c-bg); color: var(--c-text); }
+
+    .deck { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 74px 94px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s var(--ease-out);
+      font-family: var(--font-display);
+      background: var(--c-bg);
+    }
+
+    .slide.active { opacity: 1; pointer-events: auto; }
+
+    .slide.active .animate-in { animation: slideUp var(--duration-enter) var(--ease-out) both; }
+    .slide.active .animate-in:nth-child(1) { animation-delay: 0s; }
+    .slide.active .animate-in:nth-child(2) { animation-delay: 0.08s; }
+    .slide.active .animate-in:nth-child(3) { animation-delay: 0.16s; }
+    .slide.active .animate-in:nth-child(4) { animation-delay: 0.24s; }
+    .slide.active .animate-in:nth-child(5) { animation-delay: 0.32s; }
+    .slide.active .animate-in:nth-child(6) { animation-delay: 0.4s; }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero { font-size: var(--f-hero); font-weight: 900; letter-spacing: -2px; line-height: 1.05; }
+    .h1 { font-size: var(--f-h1); font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; }
+    .h2 { font-size: var(--f-h2); font-weight: 700; letter-spacing: -1px; line-height: 1.2; }
+    .h3 { font-size: var(--f-h3); font-weight: 600; line-height: 1.3; }
+    .body { font-size: var(--f-body); font-weight: 400; line-height: 1.45; color: var(--c-text-secondary); }
+    .small { font-size: var(--f-small); font-weight: 400; line-height: 1.45; color: var(--c-text-secondary); }
+    .caption { font-size: var(--f-caption); font-weight: 600; color: var(--c-text-muted); letter-spacing: 1.8px; text-transform: uppercase; }
+    .mono { font-family: var(--font-mono); }
+
+    .text-primary { color: var(--c-primary); }
+    .text-accent { color: var(--c-accent); }
+    .text-muted { color: var(--c-text-muted); }
+    .text-emphasis { color: var(--c-primary); font-weight: 800; }
+
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-xs { gap: var(--s-xs); }
+    .gap-sm { gap: var(--s-sm); }
+    .gap-md { gap: var(--s-md); }
+    .gap-lg { gap: var(--s-lg); }
+    .gap-xl { gap: var(--s-xl); }
+    .flex-1 { flex: 1; }
+    .w-full { width: 100%; }
+    .text-center { text-align: center; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-lg); }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--s-md); }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s-md); }
+
+    .card {
+      background: var(--c-bg-card);
+      border: 1px solid var(--c-border);
+      border-radius: 16px;
+      padding: var(--s-md);
+    }
+
+    .card-glow {
+      background: var(--c-bg-card);
+      border: 1px solid rgba(59,130,246,0.35);
+      border-radius: 16px;
+      padding: var(--s-md);
+      box-shadow: 0 0 36px rgba(59,130,246,0.13);
+    }
+
+    .metric-card { text-align: center; padding: var(--s-md); }
+    .metric-value {
+      font-size: 66px;
+      font-weight: 900;
+      color: var(--c-accent);
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+    .metric-label {
+      font-size: var(--f-small);
+      color: var(--c-text-muted);
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 7px 16px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .badge-primary { background: var(--c-primary-dim); color: var(--c-primary); }
+    .badge-accent { background: var(--c-accent-dim); color: var(--c-accent); }
+    .badge-outline { border: 1px solid var(--c-border); color: var(--c-text-secondary); }
+
+    .divider {
+      width: 64px;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--c-primary);
+      opacity: 0.7;
+      margin: var(--s-md) 0;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: var(--c-primary);
+    }
+
+    .bullet-list { list-style: none; }
+    .bullet-list li {
+      padding: 14px 0;
+      padding-left: 28px;
+      position: relative;
+      font-size: var(--f-body);
+      color: var(--c-text-secondary);
+      border-bottom: 1px solid var(--c-border);
+    }
+    .bullet-list li:last-child { border-bottom: none; }
+    .bullet-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--c-primary);
+      transform: translateY(-50%);
+    }
+
+    .comparison-table { width: 100%; border-collapse: collapse; }
+    .comparison-table th {
+      text-align: left;
+      padding: 12px 18px;
+      font-size: var(--f-small);
+      color: var(--c-text-muted);
+      border-bottom: 1px solid var(--c-border);
+      font-weight: 600;
+    }
+    .comparison-table td {
+      padding: 12px 18px;
+      font-size: var(--f-body);
+      border-bottom: 1px solid var(--c-border);
+      color: var(--c-text-secondary);
+    }
+    .comparison-table tr.highlight td {
+      color: var(--c-text);
+      background: var(--c-primary-dim);
+      font-weight: 700;
+    }
+    .check { color: var(--c-accent); font-weight: 800; }
+    .cross { color: var(--c-text-muted); }
+
+    .bg-default { background: var(--c-bg); }
+    .bg-alt { background: var(--c-bg-alt); }
+    .bg-surface { background: var(--c-surface); }
+
+    .notes {
+      display: none;
+      position: fixed;
+      bottom: 60px;
+      left: 40px;
+      right: 40px;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid var(--c-border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      font-size: 16px;
+      color: var(--c-text-secondary);
+      line-height: 1.6;
+      z-index: 200;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .notes.visible { display: block; }
+
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 34px;
+      background: rgba(10,10,15,0.84);
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .deck:hover .nav-bar { opacity: 1; }
+    .nav-counter {
+      font-size: 15px;
+      color: var(--c-text-muted);
+      font-family: var(--font-mono);
+    }
+    .nav-progress {
+      flex: 1;
+      max-width: 210px;
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.12);
+      margin: 0 24px;
+    }
+    .nav-progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--c-primary);
+      transition: width 0.25s var(--ease-out);
+    }
+    .nav-btn {
+      background: none;
+      border: 1px solid var(--c-border);
+      color: var(--c-text-secondary);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: var(--font-display);
+    }
+    .nav-btn:hover { border-color: var(--c-primary); color: var(--c-text); }
+
+    @media print {
+      .deck { overflow: visible; }
+      .slide {
+        position: relative;
+        opacity: 1;
+        pointer-events: auto;
+        page-break-after: always;
+        height: 100vh;
+        break-inside: avoid;
+      }
+      .nav-bar, .notes { display: none !important; }
+      .animate-in { animation: none !important; opacity: 1 !important; transform: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck">
+
+    <div class="slide bg-alt" style="justify-content:center; align-items:center; text-align:center;">
+      <span class="badge badge-primary animate-in">Crypto Investing</span>
+      <h1 class="hero text-emphasis animate-in" style="margin-top:24px;">Token Metal</h1>
+      <p class="h3 animate-in" style="color:var(--c-text-secondary); margin-top:20px; max-width:980px;">
+        Simplify the crypto investment.
+      </p>
+      <p class="small animate-in" style="margin-top:16px; max-width:980px;">
+        3 inputs in, one confident trade out. Users pick risk, USDC allocation, and hold period. Token Metal turns that into a clear recommendation and one guided trade flow.
+      </p>
+      <div class="animate-in" style="margin-top:38px; display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">
+        <span class="badge badge-accent">Hackathon MVP</span>
+        <span class="badge badge-outline">Live on mainnet preset</span>
+        <span class="badge badge-outline">Wallet-signed execution</span>
+      </div>
+
+      <div class="notes">
+        Hook in one breath: "Token Metal is the beginner-safe front door to Solana investing."
+        Mention that this is not a paper concept: wallet auth, recommendation, trade preparation, and position tracking are implemented today.
+      </div>
+    </div>
+
+    <div class="slide bg-default">
+      <span class="caption animate-in">The Problem</span>
+      <h1 class="h1 animate-in" style="margin-top:16px; max-width:1060px;">
+        First-time Solana investors face too many choices and too little confidence.
+      </h1>
+      <div class="divider animate-in"></div>
+      <ul class="bullet-list animate-in" style="max-width:1060px;">
+        <li>Hundreds of tokens, no clear path.</li>
+        <li>Research quality is wildly inconsistent.</li>
+        <li>One bad first trade kills trust.</li>
+        <li>Execution flow feels expert-only.</li>
+      </ul>
+      <p class="small animate-in" style="margin-top:22px; max-width:1100px;">
+        Context: Solana DEX volume is <span class="text-accent">$1.08B/24h</span>, but onboarding UX for beginners remains fragmented.
+      </p>
+
+      <div class="notes">
+        Emphasize that market activity is huge, yet beginner conversion is weak because discovery, conviction, and execution are split across tools.
+        This sets up Token Metal as the unified path from intent to action.
+      </div>
+    </div>
+
+    <div class="slide bg-alt">
+      <span class="caption animate-in">The Solution</span>
+      <h1 class="h1 animate-in" style="margin-top:16px; max-width:1040px;">
+        A guided investing app that turns decisions into action.
+      </h1>
+      <div class="divider animate-in"></div>
+
+      <div class="grid-3 animate-in" style="margin-top:24px;">
+        <div class="card" style="text-align:center;">
+          <p class="h3">1. Choose preferences</p>
+          <p class="small" style="margin-top:10px;">Pick risk level, amount, and time horizon.</p>
+        </div>
+        <div class="card-glow" style="text-align:center;">
+          <p class="h3">2. Get clear options</p>
+          <p class="small" style="margin-top:10px;">See ranked ideas with simple reasons.</p>
+        </div>
+        <div class="card" style="text-align:center;">
+          <p class="h3">3. Invest in one flow</p>
+          <p class="small" style="margin-top:10px;">Review, confirm, and track your position.</p>
+        </div>
+      </div>
+
+      <p class="small animate-in" style="margin-top:24px; max-width:1080px;">
+        Token Metal is a convenience app: it removes first-trade confusion and turns intent into a clear, executable action.
+      </p>
+
+      <div class="notes">
+        Keep this slide concrete. Show that each block maps to real code paths already in the repo.
+        Stress that fee capture is productized, not hypothetical.
+      </div>
+    </div>
+
+    <div class="slide bg-default">
+      <span class="caption animate-in">Demo Flow</span>
+      <h1 class="h1 animate-in" style="margin-top:16px; max-width:1060px;">
+        End-to-end path already works in one session.
+      </h1>
+      <div class="divider animate-in"></div>
+
+      <div class="animate-in" style="margin-top:22px; max-width:1060px;">
+        <div class="card">
+          <p class="h3">User journey</p>
+          <ul class="bullet-list" style="margin-top:12px;">
+            <li>Connect wallet via Privy.</li>
+            <li>Set risk, size, horizon.</li>
+            <li>Review recommendation rationale.</li>
+            <li>Prepare + sign trade.</li>
+            <li>Monitor open or closed positions.</li>
+          </ul>
+          <p class="small" style="margin-top:16px;">Public URL: <span class="mono text-primary">https://token-letal.vercel.app</span></p>
+        </div>
+      </div>
+
+      <div class="notes">
+        If demoing live, run this slide while wallet connection is happening.
+        Mention fallback: devnet dry-run still demonstrates full UX without requiring real funds.
+      </div>
+    </div>
+
+    <div class="slide bg-alt">
+      <span class="caption animate-in">Business Model</span>
+      <h1 class="h1 animate-in" style="margin-top:16px; max-width:1060px;">
+        2% convenience commission on each entry investment.
+      </h1>
+      <div class="divider animate-in"></div>
+
+      <p class="small animate-in" style="margin-top:8px; max-width:1080px;">
+        Monetization is built in: transparent <span class="text-primary">2% entry commission</span> via Jupiter platform-fee mechanism.
+      </p>
+
+      <div class="grid-3 animate-in" style="margin-top:24px;">
+        <div class="metric-card card">
+          <div class="metric-value">$50-$100</div>
+          <div class="metric-label">Expected investment per user</div>
+        </div>
+        <div class="metric-card card-glow">
+          <div class="metric-value">$1-$2</div>
+          <div class="metric-label">Commission per user (2%)</div>
+        </div>
+        <div class="metric-card card">
+          <div class="metric-value">2%</div>
+          <div class="metric-label">Fee charged only on entry</div>
+        </div>
+      </div>
+
+      <div class="animate-in" style="margin-top:28px;">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Users</th>
+              <th>Total invested</th>
+              <th>Commission at 2%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>100 users</td>
+              <td>$5,000-$10,000</td>
+              <td class="check">$100-$200</td>
+            </tr>
+            <tr>
+              <td>1,000 users</td>
+              <td>$50,000-$100,000</td>
+              <td class="check">$1,000-$2,000</td>
+            </tr>
+            <tr class="highlight">
+              <td>20,000 users</td>
+              <td>$1,000,000-$2,000,000</td>
+              <td class="check">$20,000-$40,000</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="notes">
+        Explain this as convenience pricing: users pay for faster, clearer decisions plus one-tap execution.
+        Keep the math simple and explicitly tied to entry investments of $50-$100.
+      </div>
+    </div>
+
+    <div class="slide bg-default">
+      <span class="caption animate-in">GTM Strategy</span>
+      <h1 class="h1 animate-in" style="margin-top:16px; max-width:1060px;">
+        How we get the first 100 users.
+      </h1>
+      <div class="divider animate-in"></div>
+
+      <div class="animate-in" style="margin-top:22px; max-width:1060px;">
+        <div class="card">
+          <p class="h3">Acquisition channels</p>
+          <ul class="bullet-list" style="margin-top:12px;">
+            <li>Trading competitions with prizes.</li>
+            <li>Referral system with fee perks.</li>
+            <li>Educational events and live workshops.</li>
+            <li>KOL campaign on X and Telegram.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="small animate-in" style="margin-top:16px; max-width:1100px;">
+        Goal: convert the first 100 wallets into active users, then scale the same loop by partnerships and community-led distribution.
+      </p>
+
+      <div class="notes">
+        Keep this founder-led and practical: show exactly where the first users come from and how quickly you can iterate.
+        Mention that GTM is relationship-driven, not paid-ads first.
+      </div>
+    </div>
+
+    <div class="slide bg-default">
+      <span class="caption animate-in">Founder</span>
+      <h1 class="h1 animate-in" style="margin-top:16px; max-width:1060px;">
+        Tomás Mujica
+      </h1>
+      <div class="divider animate-in"></div>
+
+      <div class="grid-2 animate-in" style="margin-top:22px; align-items:center;">
+        <div class="card" style="padding:18px; text-align:center;">
+          <img src="founder-tomas-mujica.jpg" alt="Tomás Mujica" style="width:100%; max-height:520px; object-fit:cover; border-radius:12px; border:1px solid var(--c-border);">
+        </div>
+        <div class="card-glow">
+          <p class="h3">Founder</p>
+          <p class="small" style="margin-top:16px;">
+            Focused on Web3 growth and distribution.
+          </p>
+          <p class="small" style="margin-top:16px;">
+            Worked with Base, Hedera, Algorand Foundation, and OKX to drive growth and ecosystem activation.
+          </p>
+          <p class="small text-primary" style="margin-top:20px;">
+            17K+ users acquired, +70% community growth.
+          </p>
+        </div>
+      </div>
+
+      <div class="notes">
+        Use this slide to establish trust in execution and distribution.
+        Keep the founder story concise: go-to-market operator, strong BD discipline, clear focus on activation.
+      </div>
+    </div>
+
+    <div class="slide bg-alt" style="justify-content:center; align-items:center; text-align:center;">
+      <span class="caption animate-in">The Ask</span>
+      <h1 class="hero animate-in" style="margin-top:24px;"><span class="text-accent">Hackathon Win</span></h1>
+      <p class="h3 animate-in" style="color:var(--c-text-secondary); margin-top:14px;">
+        + pilot partners on Solana
+      </p>
+      <div class="divider animate-in" style="margin:28px auto;"></div>
+
+      <div class="animate-in" style="max-width:760px; width:100%;">
+        <p class="h3" style="margin-bottom:16px;">Post-win execution focus</p>
+        <div class="flex flex-col gap-sm w-full">
+          <div>
+            <div class="flex justify-between" style="margin-bottom:6px;">
+              <span class="body">Reliability + security hardening</span>
+              <span class="small">40%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:40%;"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between" style="margin-bottom:6px;">
+              <span class="body">User testing + onboarding loops</span>
+              <span class="small">35%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:35%;"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between" style="margin-bottom:6px;">
+              <span class="body">Data integrations + analytics</span>
+              <span class="small">25%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:25%;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="small animate-in" style="margin-top:18px; max-width:860px;">
+        Milestone target: 1,000 active wallets through recommendation-to-trade funnel and repeat usage evidence.
+      </p>
+
+      <div class="notes">
+        Frame this as a momentum ask: win credibility now, then onboard design partners and users quickly.
+        Be specific about the pilot profile: wallet providers, trading communities, or onboarding-focused Solana apps.
+      </div>
+    </div>
+
+    <div class="slide bg-default" style="justify-content:center; align-items:center; text-align:center;">
+      <h1 class="hero text-emphasis animate-in">Token Metal</h1>
+      <p class="h3 animate-in" style="color:var(--c-text-secondary); margin-top:14px;">
+        Solana investing, minus first-trade anxiety.
+      </p>
+      <div class="animate-in" style="margin-top:42px; display:flex; flex-direction:column; gap:10px;">
+        <p class="body">Founder: Tomás Mujica</p>
+        <p class="body text-primary">https://token-letal.vercel.app</p>
+        <p class="body text-muted">GitHub: /Users/tomketal/Documents/Hackathon solana/token-letal</p>
+      </div>
+
+      <div class="notes">
+        End cleanly. Invite judges to test the app immediately after the pitch.
+        Keep this slide up during Q&A.
+      </div>
+    </div>
+
+    <div class="nav-bar">
+      <button class="nav-btn" onclick="prev()">&larr; Prev</button>
+      <span class="nav-counter"><span id="current">1</span> / <span id="total"></span></span>
+      <div class="nav-progress"><div class="nav-progress-fill" id="progress"></div></div>
+      <button class="nav-btn" onclick="next()">Next &rarr;</button>
+    </div>
+  </div>
+
+  <script>
+    let current = 0;
+    const slides = document.querySelectorAll('.slide');
+    const total = slides.length;
+    let notesVisible = false;
+
+    document.getElementById('total').textContent = total;
+
+    function show(i) {
+      slides.forEach((s) => s.classList.remove('active'));
+      current = Math.max(0, Math.min(i, total - 1));
+      slides[current].classList.add('active');
+      document.getElementById('current').textContent = current + 1;
+      document.getElementById('progress').style.width = ((current + 1) / total * 100) + '%';
+
+      document.querySelectorAll('.notes').forEach((n) => n.classList.remove('visible'));
+      const note = slides[current].querySelector('.notes');
+      if (note && notesVisible) note.classList.add('visible');
+    }
+
+    function next() { show(current + 1); }
+    function prev() { show(current - 1); }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+      if (e.key === 'n' || e.key === 'N') {
+        notesVisible = !notesVisible;
+        document.querySelectorAll('.notes').forEach((n) => {
+          n.classList.toggle('visible', notesVisible && n.closest('.slide').classList.contains('active'));
+        });
+      }
+    });
+
+    document.getElementById('deck').addEventListener('click', (e) => {
+      if (e.target.closest('.nav-bar') || e.target.closest('.nav-btn')) return;
+      if (e.clientX > window.innerWidth / 2) next(); else prev();
+    });
+
+    show(0);
+  </script>
+</body>
+</html>

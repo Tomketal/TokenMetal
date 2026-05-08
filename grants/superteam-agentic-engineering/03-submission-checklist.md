@@ -8,6 +8,7 @@
   - X profile
   - GitHub profile
 - Generate Crowdedness Score on Colosseum Copilot and upload screenshot to public Drive.
+- Copilot API result bundle generated at `grants/superteam-agentic-engineering/copilot/` (use `crowdedness-summary.md` + `search-projects-top10.json` as evidence).
 - Ensure `codex-session.jsonl` is present in project root.
 - Upload response package files to Drive and copy the public link.
 

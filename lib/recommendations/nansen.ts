@@ -129,7 +129,7 @@ function messageFrom(error: unknown) {
 function buildAgentFastPayload(request: RecommendationRequest) {
   return {
     query: [
-      "You are powering Token Letal, a simple Solana investing assistant for normie onboarding.",
+      "You are powering Token-Metal, a simple Solana investing assistant for normie onboarding.",
       "Return exactly 3 Solana token opportunities ranked best to worst.",
       "Use live Nansen intelligence. Do not invent unsupported token data.",
       "The user connected this wallet:",
@@ -142,7 +142,7 @@ function buildAgentFastPayload(request: RecommendationRequest) {
       "Return strict JSON with a top-level recommendations array. Each item must include: tokenName, tokenSymbol, mintAddress, confidenceScore, riskScore, expectedHoldingPeriod, entryRationale, takeProfit, stopLoss, trailingStop, estimatedUpside, estimatedDownside, profileMatch."
     ].join("\n"),
     context: {
-      product: "Token Letal",
+      product: "Token-Metal",
       chain: "solana",
       walletAddress: request.walletAddress,
       usdcBalance: request.usdcBalance,

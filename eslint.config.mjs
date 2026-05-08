@@ -1,12 +1,24 @@
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { FlatCompat } from "@eslint/eslintrc";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const eslintConfig = [
+  {
+    ignores: [
+      ".vercel/**",
+      "data/**",
+      "grants/**/copilot/**",
+      "grants/**/package*/**",
+      "pitch-deck-*.html",
+      "PROJECT_CODE_BUNDLE.md"
+    ]
+  },
+  ...nextVitals,
+  ...nextTypescript,
+  {
+    rules: {
+      "react-hooks/set-state-in-effect": "off"
+    }
+  }
+];
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname
-});
-
-export default [...compat.extends("next/core-web-vitals", "next/typescript")];
+export default eslintConfig;

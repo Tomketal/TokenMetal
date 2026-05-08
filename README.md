@@ -11,10 +11,12 @@ The MVP uses a real Nansen-powered recommendation layer and Jupiter swap transac
 ## Stack
 
 - Next.js App Router + TypeScript
-- Solana wallet adapter, Solflare enabled first
+- Solana wallet adapter (Phantom + Solflare)
+- Privy auth (email, Google, X, wallet) with embedded + external wallets
 - Nansen API adapter for token recommendations
 - Jupiter Swap API adapter for market buy and close flows
 - Local JSON position store for hackathon development
+- Local SQLite transaction ledger for full buy/sell history and PnL
 
 No custom Solana program is required for the MVP. This app integrates existing protocols first.
 
@@ -68,11 +70,46 @@ NANSEN_TOKEN_SCREENER_URL=https://api.nansen.ai/api/v1/token-screener
 
 JUPITER_API_KEY=optional_jupiter_key
 JUPITER_SWAP_BASE_URL=https://api.jup.ag/swap/v1
+JUPITER_TRIGGER_API_KEY=optional_jupiter_trigger_key
+JUPITER_TRIGGER_BASE_URL=https://api.jup.ag/trigger/v2
+NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+NEXT_PUBLIC_PRIVY_CLIENT_ID=optional_privy_client_id
 NEXT_PUBLIC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 NEXT_PUBLIC_USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+TREASURY_WALLET=C6SXMQLziW8M7SAXQA2BxCmejE7HJRhKA9ahzbdF6CKW
 USDC_DECIMALS=6
 FIXED_SLIPPAGE_BPS=75
+TRIGGER_ORDER_EXPIRY_DAYS=30
+TRIGGER_MIN_ORDER_USD=10
+TRIGGER_TP_SLIPPAGE_BPS=100
+TRIGGER_SL_SLIPPAGE_BPS=2000
 ```
+
+## Privy Login Setup
+
+1. Add `NEXT_PUBLIC_PRIVY_APP_ID` from your Privy dashboard API Keys page (exactly, without typos).
+2. Optionally add `NEXT_PUBLIC_PRIVY_CLIENT_ID` if your Privy app uses a client ID.
+3. In Privy dashboard, enable these login methods: wallet, email, Google, X.
+4. Add allowed domains in Privy:
+   - `http://localhost:3000`
+   - `https://token-letal.vercel.app`
+5. Keep your `App secret` private; it is only needed for backend token verification routes.
+
+Note: Privy's X login is configured as `twitter` in the React SDK config.
+
+## Commission Setup
+
+Token Letal uses Jupiter's native platform-fee mechanism to collect a 0.5% fee on entry trades.
+
+One-time setup required before the first real mainnet trade:
+
+```bash
+spl-token create-account \
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v \
+  --owner C6SXMQLziW8M7SAXQA2BxCmejE7HJRhKA9ahzbdF6CKW
+```
+
+This creates the treasury wallet's USDC Associated Token Account (ATA), which Jupiter requires for fee settlement.
 
 ## API Routes
 
@@ -94,14 +131,35 @@ FIXED_SLIPPAGE_BPS=75
   - `action: "prepare"` builds a Jupiter swap transaction from the token back to USDC.
   - `action: "confirm"` marks the position closed after wallet execution.
 
+- `POST /api/trigger/oco`
+  - `action: "challenge"` starts Jupiter Trigger V2 auth challenge.
+  - `action: "craft"` verifies challenge signature, ensures vault, and builds trigger deposit tx.
+  - `action: "confirm"` creates a live OCO TP/SL order on Jupiter Trigger V2.
+  - `action: "sync"` refreshes local order state from Trigger history.
+  - `action: "cancelCraft"` + `action: "cancelConfirm"` cancel an existing OCO and withdraw from vault.
+
+- `GET /api/transactions?owner=<wallet>`
+  - Returns the transaction database rows plus PnL summary.
+  - Data source: `data/transactions.db` (SQLite).
+
+- `GET /api/transactions/export?owner=<wallet>`
+  - Exports the same transaction database rows as CSV.
+
+- `GET /transactions?owner=<wallet>`
+  - HTML dashboard to inspect transactions, PnL metrics, and export links.
+
 ## MVP Notes
 
 - Recommendations are not mocked. Missing Nansen credentials return a configuration error.
 - The Nansen Agent Fast adapter expects JSON output, but the parser also accepts common wrappers like `recommendations`, `data`, `result`, `response`, `output`, and fenced JSON text.
 - Trade execution uses real Jupiter swap transactions and wallet signing.
+- A 0.5% platform fee is collected on every trade entry via Jupiter's native platform-fee mechanism. Fees are sent to the treasury USDC ATA automatically within the swap transaction. The fee is shown transparently in the trade review UI. No fee is charged on close. Fee collection is disabled in dry-run mode.
 - Position tracking is local-first and stores data in `data/positions.json`.
+- Transaction tracking uses local SQLite in `data/transactions.db` and records every buy/sell signature, amounts, fees, and realized PnL.
 - One active position per token per wallet is enforced for MVP.
-- Trailing stop is modeled in the interfaces and UI, but autonomous execution is intentionally left as a pluggable future worker.
+- TP/SL can be armed as real Jupiter Trigger V2 OCO orders per open position. Once armed, position tokens are deposited into Jupiter's trigger vault until fill/cancel/expiry.
+- Jupiter Trigger V2 enforces a minimum order size of 10 USD equivalent.
+- Trailing stop remains UI metadata only in this version.
 - Mainnet is the practical default for Nansen/Jupiter/USDC. Devnet can be configured through env values, but aggregator liquidity may not exist there.
 
 ## Project Structure
@@ -125,4 +183,4 @@ lib/
 1. Confirm the exact Nansen endpoint or custom agent payload you will use in the hackathon.
 2. Add Phantom by appending a Phantom adapter in `app/providers.tsx`.
 3. Replace the JSON store with Postgres, Supabase, or SQLite if multiple users will test concurrently.
-4. Add a background job for take profit, stop loss, and trailing-stop monitoring.
+4. Add automated status sync + notifications when trigger orders fill/cancel/expire.

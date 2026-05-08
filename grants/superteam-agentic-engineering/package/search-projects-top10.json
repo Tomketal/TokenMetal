@@ -1,0 +1,106 @@
+{
+  "totalFound": 11,
+  "hasMore": true,
+  "top10": [
+    {
+      "slug": "solagent",
+      "name": "SOLAGENT",
+      "similarity": 0.05210084033613445,
+      "crowdedness": 270,
+      "cluster": {
+        "key": "v1-c22",
+        "label": "AI-Powered Solana DeFi Assistants"
+      }
+    },
+    {
+      "slug": "coral-ai-wallet-assistant",
+      "name": "Coral AI Wallet Assistant",
+      "similarity": 0.04490306441525954,
+      "crowdedness": 270,
+      "cluster": {
+        "key": "v1-c22",
+        "label": "AI-Powered Solana DeFi Assistants"
+      }
+    },
+    {
+      "slug": "salt-wallet",
+      "name": "salt wallet",
+      "similarity": 0.04068627450980392,
+      "crowdedness": 270,
+      "cluster": {
+        "key": "v1-c22",
+        "label": "AI-Powered Solana DeFi Assistants"
+      }
+    },
+    {
+      "slug": "juno",
+      "name": "Juno",
+      "similarity": 0.040343781597573306,
+      "crowdedness": 270,
+      "cluster": {
+        "key": "v1-c22",
+        "label": "AI-Powered Solana DeFi Assistants"
+      }
+    },
+    {
+      "slug": "kalyna-wallet",
+      "name": "Kalyna Wallet",
+      "similarity": 0.03225806451612903,
+      "crowdedness": 260,
+      "cluster": {
+        "key": "v1-c13",
+        "label": "Solana Privacy and Identity Management"
+      }
+    },
+    {
+      "slug": "sol-index",
+      "name": "Sol index",
+      "similarity": 0.030303030303030304,
+      "crowdedness": 323,
+      "cluster": {
+        "key": "v1-c9",
+        "label": "Solana DEX and Trading Infrastructure"
+      }
+    },
+    {
+      "slug": "x402-sdk-for-solana",
+      "name": "x402 SDK for Solana",
+      "similarity": 0.02702702702702703,
+      "crowdedness": 257,
+      "cluster": {
+        "key": "v1-c5",
+        "label": "Solana Data and Monitoring Infrastructure"
+      }
+    },
+    {
+      "slug": "ideaforge-invest",
+      "name": "Ideaforge Invest",
+      "similarity": 0.03125,
+      "crowdedness": 183,
+      "cluster": {
+        "key": "v1-c25",
+        "label": "Solana Token Launchpads"
+      }
+    },
+    {
+      "slug": "salaamfi",
+      "name": "SalaamFi",
+      "similarity": 0.029411764705882353,
+      "crowdedness": 223,
+      "cluster": {
+        "key": "v1-c26",
+        "label": "Simplified Solana Payment Solutions"
+      }
+    },
+    {
+      "slug": "solspin",
+      "name": "Solspin",
+      "similarity": 0.025806451612903226,
+      "crowdedness": 163,
+      "cluster": {
+        "key": "v1-c6",
+        "label": "Gamified Crypto Trading and Competition"
+      }
+    }
+  ]
+}

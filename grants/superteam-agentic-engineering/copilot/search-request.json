@@ -1,0 +1,10 @@
+{
+  "query": "Solana investment assistant for retail onboarding using Nansen intelligence, Jupiter swaps, wallet-signed execution, and portfolio tracking",
+  "limit": 10,
+  "diversify": true,
+  "includeDiagnostics": true,
+  "filters": {
+    "winnersOnly": false,
+    "acceleratorOnly": false
+  }
+}
