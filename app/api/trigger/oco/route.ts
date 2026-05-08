@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { shouldUseSandboxTrading } from "@/lib/config";
 import { patchPosition, listPositions } from "@/lib/positions/store";
 import {
   buildTriggerOrderSnapshot,
@@ -97,6 +98,10 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "cancelCraft") {
+      if (shouldUseSandboxTrading()) {
+        throw new Error("Sandbox mode is active. Use local TP/SL cancellation.");
+      }
+
       const position = await getOwnedPosition(body.owner, body.positionId);
       const existingTriggerOrder = position.triggerOrder;
       const orderId = existingTriggerOrder?.orderId;
@@ -120,6 +125,10 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "cancelConfirm") {
+      if (shouldUseSandboxTrading()) {
+        throw new Error("Sandbox mode is active. Use local TP/SL cancellation.");
+      }
+
       const position = await getOwnedPosition(body.owner, body.positionId);
       const orderId = position.triggerOrder?.orderId;
       if (!orderId) throw new Error("No trigger order found for this position.");
@@ -128,6 +137,23 @@ export async function POST(request: Request) {
         cancelRequestId: body.cancelRequestId,
         signedTransaction: body.cancelSignedTx
       });
+
+      const updated = await patchPosition(body.positionId, body.owner, {
+        triggerOrder: undefined
+      });
+
+      return NextResponse.json({ position: updated });
+    }
+
+    if (body.action === "cancelLocal") {
+      if (!shouldUseSandboxTrading()) {
+        throw new Error("Local TP/SL cancellation is only available in sandbox mode.");
+      }
+
+      const position = await getOwnedPosition(body.owner, body.positionId);
+      if (!position.triggerOrder) {
+        throw new Error("No trigger order found for this position.");
+      }
 
       const updated = await patchPosition(body.positionId, body.owner, {
         triggerOrder: undefined

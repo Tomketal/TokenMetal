@@ -584,6 +584,29 @@ export default function Home() {
     setBusy(`cancel:${position.id}`);
 
     try {
+      if (effectiveDryRun) {
+        const cancelLocalResponse = await fetch("/api/trigger/oco", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "cancelLocal",
+            owner,
+            positionId: position.id
+          })
+        });
+        const cancelLocalPayload = await cancelLocalResponse.json();
+        if (!cancelLocalResponse.ok) {
+          throw new Error(cancelLocalPayload.error || "Unable to cancel TP/SL locally.");
+        }
+
+        const updated = normalizePosition(cancelLocalPayload.position);
+        if (updated) {
+          commitPositions((previous) => upsertOpenPosition(previous, updated));
+        }
+        await refreshPositions();
+        return;
+      }
+
       const authToken = await getTriggerAuthTokenForPosition(position.id);
 
       const cancelCraftResponse = await fetch("/api/trigger/oco", {

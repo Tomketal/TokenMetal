@@ -110,5 +110,10 @@ export const triggerOcoRequestSchema = z.discriminatedUnion("action", [
     authToken: z.string().min(16),
     cancelRequestId: z.string().min(8),
     cancelSignedTx: z.string().min(16)
+  }),
+  z.object({
+    action: z.literal("cancelLocal"),
+    owner: z.string().min(32),
+    positionId: z.string()
   })
 ]);
