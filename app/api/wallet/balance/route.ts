@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { appConfig, shouldUseSandboxTrading } from "@/lib/config";
+import { appConfig } from "@/lib/config";
 
 export const runtime = "nodejs";
 
@@ -24,16 +24,6 @@ export async function GET(request: Request) {
     }
 
     const ownerPublicKey = new PublicKey(owner);
-    if (shouldUseSandboxTrading()) {
-      return NextResponse.json({
-        balance: 1000,
-        rawAmount: String(1000 * 10 ** capitalDecimals),
-        mint: capitalMint,
-        decimals: capitalDecimals,
-        source: "dry-run"
-      });
-    }
-
     const connection = new Connection(appConfig.solanaRpcUrl, "confirmed");
 
     if (capitalMint === nativeSolMint) {
