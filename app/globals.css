@@ -1573,9 +1573,10 @@ button:disabled {
 }
 
 .positions-panel .position {
-  grid-template-columns: 0.72fr repeat(4, minmax(0, 1fr)) 86px;
-  min-height: 83px;
+  grid-template-columns: minmax(64px, 0.72fr) repeat(4, minmax(54px, 1fr)) minmax(86px, 0.95fr);
+  min-height: 0;
   padding: 8px;
+  gap: 7px;
 }
 
 .positions-panel .position > div:nth-of-type(5) {
@@ -1586,6 +1587,7 @@ button:disabled {
 .positions-panel .position div {
   font-size: 11px;
   line-height: 1.15;
+  min-width: 0;
 }
 
 .positions-panel .position div {
@@ -1599,10 +1601,19 @@ button:disabled {
   gap: 4px;
 }
 
+.positions-panel .position-actions {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: visible;
+}
+
 .positions-panel .secondary {
   min-height: 25px;
   padding: 4px 7px;
   font-size: 11px;
+  min-width: 0;
+  width: 100%;
+  white-space: nowrap;
 }
 
 .position-actions .secondary:first-child {
@@ -1634,6 +1645,17 @@ button:disabled {
 
   50% {
     filter: brightness(1.18);
+  }
+}
+
+@media (max-width: 980px) {
+  .position-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .open-position-list,
+  .closed-position-list {
+    max-height: none;
   }
 }
 
