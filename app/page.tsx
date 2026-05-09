@@ -173,6 +173,19 @@ export default function Home() {
     setPositionsLastUpdated(new Date());
   }, [owner, commitPositions]);
 
+  const closePositionLocally = useCallback((position: Position, signature: string) => {
+    const closedPosition: Position = {
+      ...position,
+      status: "closed",
+      closeSignature: signature,
+      closedAt: new Date().toISOString()
+    };
+
+    commitPositions((previous) => upsertClosedPosition(previous, closedPosition));
+    setInspectedPosition((current) => current?.id === position.id ? closedPosition : current);
+    setPositionsLastUpdated(new Date());
+  }, [commitPositions]);
+
   useEffect(() => {
     fetch("/api/trade/status", { cache: "no-store" })
       .then((response) => response.json())
@@ -347,6 +360,15 @@ export default function Home() {
         throw new Error("Cancel the active TP/SL order before closing this position manually.");
       }
 
+      if (effectiveDryRun) {
+        const signature = effectiveSandboxSigning
+          ? await sendSandboxSignature(`Token-Metal sandbox close ${position.tokenSymbol}`)
+          : `dry-run-close-${crypto.randomUUID()}`;
+        closePositionLocally(position, signature);
+        await refreshBalance();
+        return;
+      }
+
       const prepareResponse = await fetch("/api/positions/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -393,23 +415,8 @@ export default function Home() {
         throw new Error("Cancel the active TP/SL order before using local close.");
       }
 
-      const confirmResponse = await fetch("/api/positions/close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "confirm",
-          owner,
-          positionId: position.id,
-          signature: `local-close-${crypto.randomUUID()}`
-        })
-      });
-      const confirmPayload = await confirmResponse.json();
-      if (!confirmResponse.ok) throw new Error(confirmPayload.error || "Local close failed.");
-      const closedPosition = normalizePosition(confirmPayload.position);
-      if (closedPosition) {
-        commitPositions((previous) => upsertClosedPosition(previous, closedPosition));
-      }
-      await refreshPositions();
+      closePositionLocally(position, `local-close-${crypto.randomUUID()}`);
+      await refreshBalance();
     } catch (err) {
       setError(describeWalletError(err, "Unable to close position locally."));
     } finally {
