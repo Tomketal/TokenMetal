@@ -30,6 +30,7 @@ export const appConfig = {
   triggerMinOrderUsd: Number(process.env.TRIGGER_MIN_ORDER_USD || 10),
   triggerTpSlippageBps: Number(process.env.TRIGGER_TP_SLIPPAGE_BPS || 100),
   triggerSlSlippageBps: Number(process.env.TRIGGER_SL_SLIPPAGE_BPS || 2000),
+  minLiveTradeUsdc: Number(process.env.MIN_LIVE_TRADE_USDC || 1),
 
   // -- Commission -------------------------------------------------------------
   commissionBps: COMMISSION_BPS,
@@ -42,10 +43,9 @@ export function hasWriteEnabledRpcForLiveTrading() {
   const cluster = (process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "mainnet-beta").toLowerCase();
   if (cluster !== "mainnet-beta") return true;
 
-  const publicRpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "";
   const serverRpcUrl = process.env.SOLANA_RPC_URL || "";
 
-  return Boolean(serverRpcUrl) || !isSolanaPublicMainnetRpc(publicRpcUrl);
+  return Boolean(serverRpcUrl) && !isPublicMainnetRpc(serverRpcUrl);
 }
 
 export function shouldUseSandboxTrading() {
@@ -53,13 +53,22 @@ export function shouldUseSandboxTrading() {
 }
 
 export function isSolanaPublicMainnetRpc(value: string) {
+  return isPublicMainnetRpc(value);
+}
+
+export function isPublicMainnetRpc(value: string) {
   try {
     const url = new URL(value);
-    return url.hostname === "api.mainnet-beta.solana.com";
+    return PUBLIC_MAINNET_RPC_HOSTS.has(url.hostname);
   } catch {
     return false;
   }
 }
+
+const PUBLIC_MAINNET_RPC_HOSTS = new Set([
+  "api.mainnet-beta.solana.com",
+  "solana-rpc.publicnode.com"
+]);
 
 export function requireEnv(value: string, name: string) {
   if (!value) {
