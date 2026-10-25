@@ -415,7 +415,7 @@ export default function Home() {
                 <Image
                   className="brand-logo"
                   src="/token-metal-logo-transparent.png"
-                  alt="Token-Metal logo"
+                  alt="TokenMetal logo"
                   width={866}
                   height={288}
                   priority
