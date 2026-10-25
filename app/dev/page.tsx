@@ -7,7 +7,15 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { useStellarWallet } from "@/app/providers";
 import { explorerTxUrl } from "@/lib/stellar/network";
-import type { Position, PreparedTrade, TokenRecommendation } from "@/lib/types";
+import {
+  holdingPeriods,
+  riskProfiles,
+  type HoldingPeriod,
+  type Position,
+  type PreparedTrade,
+  type RiskProfile,
+  type TokenRecommendation
+} from "@/lib/types";
 
 const MAINNET_PRESETS = [
   { symbol: "XLM", asset: "native" },
@@ -47,6 +55,10 @@ export default function DevPage() {
   const [asset, setAsset] = useState(MAINNET_PRESETS[1].asset);
   const [symbol, setSymbol] = useState(MAINNET_PRESETS[1].symbol);
   const [amount, setAmount] = useState("1");
+  const [riskProfile, setRiskProfile] = useState<RiskProfile>("medium");
+  const [allocation, setAllocation] = useState(25);
+  const [holdingPeriod, setHoldingPeriod] = useState<HoldingPeriod>("1 month");
+  const [recommendations, setRecommendations] = useState<TokenRecommendation[]>([]);
   const [prepared, setPrepared] = useState<PreparedTrade | null>(null);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<LogLine[]>([]);
@@ -117,17 +129,36 @@ export default function DevPage() {
     }
   }
 
-  const prepareBuy = () =>
+  const investAmount = balance && balance.balance > 0 ? Math.floor(balance.balance * allocation) / 100 : Number(amount);
+
+  const getRecommendations = () =>
+    run("Recommendations", async () => {
+      setRecommendations([]);
+      say(`Asking the engine: ${riskProfile} risk, ${allocation}% (${investAmount} USDC), ${holdingPeriod}…`);
+      const { recommendations: picks } = await post<{ recommendations: TokenRecommendation[] }>("/api/recommendations", {
+        walletAddress: address ?? undefined,
+        usdcBalance: balance && balance.balance > 0 ? balance.balance : Number(amount),
+        riskProfile,
+        allocationPercentage: balance && balance.balance > 0 ? allocation : 100,
+        holdingPeriod
+      });
+      setRecommendations(picks);
+      say(`Got ${picks.length} options: ${picks.map((pick) => pick.tokenSymbol).join(", ")}`);
+    });
+
+  const prepareBuy = (recommendation = manualRecommendation(asset, symbol), amountUsdc = Number(amount)) =>
     run("Prepare", async () => {
       if (!address) throw new Error("Connect a wallet first.");
       const { preparedTrade } = await post<{ preparedTrade: PreparedTrade }>("/api/trade", {
         action: "prepare",
         owner: address,
-        amountUsdc: Number(amount),
-        recommendation: manualRecommendation(asset, symbol)
+        amountUsdc,
+        recommendation
       });
       setPrepared(preparedTrade);
-      say(`Quote: ${preparedTrade.amountUsdc} USDC -> ~${preparedTrade.expectedTokenAmountUi.toFixed(4)} ${symbol}`);
+      say(
+        `Quote: ${preparedTrade.amountUsdc} USDC -> ~${preparedTrade.expectedTokenAmountUi.toFixed(4)} ${recommendation.tokenSymbol}. Press "Sign & buy".`
+      );
     });
 
   const executeBuy = () =>
@@ -209,7 +240,71 @@ export default function DevPage() {
       </section>
 
       <section style={styles.card}>
-        <h2 style={styles.heading}>2. Buy</h2>
+        <h2 style={styles.heading}>2. Your three inputs</h2>
+        <div style={styles.row}>
+          <label>
+            Risk profile{" "}
+            <select value={riskProfile} onChange={(e) => setRiskProfile(e.target.value as RiskProfile)}>
+              {riskProfiles.map((profile) => (
+                <option key={profile}>{profile}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Invest {allocation}% of USDC{" "}
+            <input
+              type="range"
+              min={5}
+              max={100}
+              step={5}
+              value={allocation}
+              onChange={(e) => setAllocation(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Money back in{" "}
+            <select value={holdingPeriod} onChange={(e) => setHoldingPeriod(e.target.value as HoldingPeriod)}>
+              {holdingPeriods.map((period) => (
+                <option key={period}>{period}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <p style={styles.muted}>
+          Amount to invest: <b>{investAmount} USDC</b>
+          {!(balance && balance.balance > 0) && " (no USDC balance; using the USDC field below)"}
+        </p>
+        <button disabled={busy} onClick={getRecommendations}>
+          Get 3 recommendations
+        </button>
+        <div style={styles.options}>
+          {recommendations.map((recommendation, index) => (
+            <div key={recommendation.id} style={styles.option}>
+              <div style={styles.row}>
+                <b style={{ fontSize: 18 }}>
+                  #{index + 1} {recommendation.tokenSymbol}
+                </b>
+                <span style={styles.muted}>{recommendation.tokenName}</span>
+              </div>
+              <p style={styles.muted}>
+                Risk {recommendation.riskScore}/100 · Confidence {recommendation.confidenceScore}/100
+              </p>
+              <p>
+                Take profit <b>{recommendation.takeProfit}</b> · Stop loss <b>{recommendation.stopLoss}</b>
+                {recommendation.trailingStop && <> · Trailing {recommendation.trailingStop}</>}
+              </p>
+              <p style={styles.small}>{recommendation.entryRationale}</p>
+              <p style={styles.small}>{recommendation.profileMatch}</p>
+              <button disabled={busy} onClick={() => prepareBuy(recommendation, investAmount)}>
+                Invest {investAmount} USDC in {recommendation.tokenSymbol}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={styles.card}>
+        <h2 style={styles.heading}>3. Buy (or pick a token manually)</h2>
         <div style={styles.row}>
           {MAINNET_PRESETS.map((preset) => (
             <button
@@ -237,8 +332,8 @@ export default function DevPage() {
           </label>
         </div>
         <div style={styles.row}>
-          <button disabled={busy || !address} onClick={prepareBuy}>
-            Prepare quote
+          <button disabled={busy || !address} onClick={() => prepareBuy()}>
+            Prepare manual quote
           </button>
           <button disabled={busy || !prepared} onClick={executeBuy}>
             Sign &amp; buy
@@ -248,7 +343,7 @@ export default function DevPage() {
       </section>
 
       <section style={styles.card}>
-        <h2 style={styles.heading}>3. Positions</h2>
+        <h2 style={styles.heading}>4. Positions</h2>
         {positions.open.length === 0 && <p style={styles.muted}>No open positions.</p>}
         {positions.open.map((position) => (
           <div key={position.id} style={styles.row}>
@@ -316,6 +411,9 @@ const styles: Record<string, CSSProperties> = {
   row: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 },
   heading: { color: "#c6ff00", fontSize: 18, margin: "0 0 12px" },
   muted: { color: "#aaa", fontSize: 13 },
+  small: { color: "#ccc", fontSize: 12, lineHeight: 1.5 },
+  options: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginTop: 12 },
+  option: { border: "1px solid #c6ff00", borderRadius: 8, padding: 12 },
   active: { outline: "2px solid #c6ff00" },
   pre: { background: "#000", padding: 12, overflowX: "auto", fontSize: 12 }
 };

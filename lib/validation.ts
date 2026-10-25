@@ -8,7 +8,7 @@ const assetId = z.string().refine(isValidAssetId, "Invalid Stellar asset id (COD
 const txHash = z.string().min(8);
 
 export const recommendationRequestSchema = z.object({
-  walletAddress: stellarAddress,
+  walletAddress: stellarAddress.optional(),
   usdcBalance: z.number().nonnegative(),
   riskProfile: z.enum(riskProfiles),
   allocationPercentage: z.number().int().min(5).max(100),

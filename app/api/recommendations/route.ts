@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getNansenRecommendations } from "@/lib/recommendations/nansen";
+import { getStellarRecommendations } from "@/lib/recommendations/stellar";
 import { recommendationRequestSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const body = recommendationRequestSchema.parse(await request.json());
-    const recommendations = await getNansenRecommendations(body);
+    const recommendations = await getStellarRecommendations(body);
     return NextResponse.json({ recommendations });
   } catch (error) {
     return NextResponse.json(

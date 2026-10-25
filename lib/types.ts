@@ -34,7 +34,7 @@ export type TriggerOrderState =
   | "unknown";
 
 export interface RecommendationRequest {
-  walletAddress: string;
+  walletAddress?: string;
   usdcBalance: number;
   riskProfile: RiskProfile;
   allocationPercentage: number;

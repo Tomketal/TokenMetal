@@ -2,12 +2,6 @@ import { COMMISSION_BPS, TREASURY_WALLET } from "@/lib/commission";
 import { STELLAR_DECIMALS, defaultHorizonUrl, networkPassphrase, stellarNetwork, usdcAssetId } from "@/lib/stellar/network";
 
 export const appConfig = {
-  nansenApiKey: process.env.NANSEN_API_KEY || "",
-  nansenAgentUrl: process.env.NANSEN_AGENT_URL || "https://api.nansen.ai/api/v1/agent/fast",
-  nansenUseTokenScreener: process.env.NANSEN_USE_TOKEN_SCREENER !== "false",
-  nansenTokenScreenerUrl:
-    process.env.NANSEN_TOKEN_SCREENER_URL || "https://api.nansen.ai/api/v1/token-screener",
-
   // -- Stellar ----------------------------------------------------------------
   stellarNetwork,
   networkPassphrase,
