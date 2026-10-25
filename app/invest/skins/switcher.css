@@ -1,0 +1,198 @@
+/* Skin switcher UI styles — base, works on top of any skin. */
+
+.skin-switcher-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-right: 10px;
+}
+
+.skin-switcher-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.12));
+  color: var(--screen-ink, #e6ecef);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.skin-switcher-button:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(0, 0, 0, 0.14));
+}
+
+.skin-switcher-button:active,
+.skin-switcher-button.open {
+  transform: translateY(1px);
+}
+
+.skin-switcher-label {
+  opacity: 0.7;
+}
+
+.skin-switcher-current {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.skin-switcher-caret {
+  margin-left: 2px;
+  opacity: 0.75;
+  font-size: 10px;
+}
+
+.skin-switcher-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 50;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(16, 20, 22, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45);
+}
+
+.skin-tile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.skin-tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #e6ecef;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.skin-tile:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.skin-tile.selected {
+  border-color: rgba(132, 243, 190, 0.65);
+  background: rgba(132, 243, 190, 0.1);
+}
+
+.skin-tile-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 8px;
+}
+
+.skin-tile-screen {
+  display: block;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.skin-tile-button {
+  display: block;
+  height: 10px;
+  width: 40px;
+  border-radius: 4px;
+  align-self: flex-end;
+}
+
+.skin-tile-slider {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.skin-tile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.skin-tile-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.skin-tile-edition {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  text-transform: uppercase;
+}
+
+.skin-tile-blurb {
+  font-size: 11px;
+  opacity: 0.72;
+  line-height: 1.3;
+}
+
+.skin-tile-check {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 12px;
+  color: #84f3be;
+}
+
+/* Preview palettes per skin (independent of document skin, so they always show
+   their own identity in the dropdown regardless of the current skin). */
+
+.skin-tile-metal .skin-tile-preview { background: linear-gradient(180deg, #c8cdd0, #8f9699); }
+.skin-tile-metal .skin-tile-screen { background: linear-gradient(180deg, #0e1c17, #081011); border: 1px solid rgba(132, 243, 190, 0.3); }
+.skin-tile-metal .skin-tile-button { background: linear-gradient(180deg, #ff9c58, #d0531a); }
+.skin-tile-metal .skin-tile-slider { background: linear-gradient(90deg, #262f31, #4a5457); }
+
+.skin-tile-glass .skin-tile-preview { background: linear-gradient(180deg, rgba(255, 250, 240, 0.6), rgba(230, 220, 205, 0.3)); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.4); }
+.skin-tile-glass .skin-tile-screen { background: rgba(30, 36, 46, 0.55); border: 1px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(2px); }
+.skin-tile-glass .skin-tile-button { background: radial-gradient(circle at 30% 25%, #7ba9ff, #2458d6); box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8); }
+.skin-tile-glass .skin-tile-slider { background: linear-gradient(90deg, rgba(36, 88, 214, 0.3), rgba(36, 88, 214, 0.1)); }
+
+.skin-tile-plush .skin-tile-preview { background: radial-gradient(circle at 30% 30%, #f7c6dc, #e989b5); }
+.skin-tile-plush .skin-tile-screen { background: #fff7fb; border: 1px solid #e989b5; }
+.skin-tile-plush .skin-tile-button { background: linear-gradient(180deg, #ffe6f1, #e989b5); box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.7); }
+.skin-tile-plush .skin-tile-slider { background: linear-gradient(90deg, #a82d68, #e989b5); }
+
+.skin-tile-grid .skin-tile-preview { background: #080a0b; border: 1px solid #929c99; }
+.skin-tile-grid .skin-tile-screen { background: #0f1214; border: 1px solid #edf0ec; background-image: repeating-linear-gradient(0deg, rgba(237, 240, 236, 0.05) 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, rgba(237, 240, 236, 0.05) 0 1px, transparent 1px 4px); }
+.skin-tile-grid .skin-tile-button { background: #edf0ec; }
+.skin-tile-grid .skin-tile-slider { background: #929c99; }
+
+/* ---------- Logo overlay (per-skin fill via mask-image) ---------- */
+/* By default the overlay sits invisible; each skin paints it with its own fill. */
+
+.brand-logo-wrap {
+  position: relative;
+}
+
+.brand-logo-skin {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}

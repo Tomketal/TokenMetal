@@ -1,0 +1,961 @@
+/* PLUSH-03 — pink velvet / soft fur casing with pearl keys and ivory screens.
+   Overrides invest.css. Scoped to [data-skin="plush"]. */
+
+:root[data-skin="plush"] {
+  --app-bg: #fdeef4;
+  --app-bg-2: #f7c6dc;
+  --ink: #4a1b37;
+  --text: #4a1b37;
+  --muted: #a26b89;
+  --screen-ink: #4a1b37;
+  --screen-muted: #a26b89;
+  --line: rgba(168, 45, 104, 0.22);
+  --line-soft: rgba(168, 45, 104, 0.12);
+  --accent: #a82d68;
+  --accent-glow: rgba(168, 45, 104, 0.35);
+  --positive: #2e7d5b;
+  --positive-glow: rgba(46, 125, 91, 0.4);
+  --danger: #a82d68;
+  --radius-soft: 20px;
+  --radius-hard: 32px;
+
+  --plush-blush: #f7c6dc;
+  --plush-rose: #e989b5;
+  --plush-raspberry: #a82d68;
+  --plush-ivory: #fff7fb;
+  --plush-plum: #4a1b37;
+  --plush-font: "Nunito", "Quicksand", "Varela Round", system-ui, sans-serif;
+}
+
+/* ---------- Backdrop ----------
+   The WebGL PlushBackground canvas sits fixed behind the UI. Body stays
+   transparent so the shader shows through. */
+
+[data-skin="plush"] body {
+  background: transparent;
+  color: var(--plush-plum);
+  font-family: var(--plush-font);
+  font-weight: 400;
+}
+
+[data-skin="plush"] body::before,
+[data-skin="plush"] body::after {
+  background: none;
+  display: none;
+}
+
+/* Shell must sit above the fixed WebGL canvas */
+[data-skin="plush"] .shell {
+  position: relative;
+  z-index: 2;
+}
+
+/* ---------- Typography ---------- */
+
+[data-skin="plush"] .device,
+[data-skin="plush"] .device h1,
+[data-skin="plush"] .device h2,
+[data-skin="plush"] .device h3,
+[data-skin="plush"] .device h4,
+[data-skin="plush"] .device p,
+[data-skin="plush"] .device strong,
+[data-skin="plush"] .device button,
+[data-skin="plush"] .device label,
+[data-skin="plush"] .device select,
+[data-skin="plush"] .device input,
+[data-skin="plush"] .device span,
+[data-skin="plush"] .screen,
+[data-skin="plush"] .screen span,
+[data-skin="plush"] .screen p {
+  font-family: var(--plush-font);
+}
+
+[data-skin="plush"] .device strong,
+[data-skin="plush"] .balance-screen strong,
+[data-skin="plush"] .mini-screen strong,
+[data-skin="plush"] .balance-chip strong,
+[data-skin="plush"] .metric strong,
+[data-skin="plush"] .engine-mini-screen strong,
+[data-skin="plush"] .position strong,
+[data-skin="plush"] .position-details-field strong {
+  font-weight: 700;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* ---------- Device chassis ----------
+   Translucent so the fur background shows through — the device becomes
+   a soft ivory window set INTO the fur, not a solid pink block. */
+
+[data-skin="plush"] .device {
+  border-radius: 48px 48px 56px 56px;
+  background:
+    linear-gradient(180deg, rgba(255, 247, 251, 0.72) 0%, rgba(255, 220, 235, 0.6) 100%);
+  border: 2px solid rgba(255, 247, 251, 0.9);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -4px 8px rgba(168, 45, 104, 0.14),
+    0 24px 60px rgba(120, 30, 72, 0.4),
+    0 8px 20px rgba(80, 20, 50, 0.3);
+  color: var(--plush-plum);
+  backdrop-filter: blur(10px) saturate(130%);
+  -webkit-backdrop-filter: blur(10px) saturate(130%);
+}
+
+[data-skin="plush"] .device::before {
+  border-radius: 38px 38px 48px 48px;
+  border: 1px solid rgba(255, 247, 251, 0.46);
+  box-shadow:
+    inset 0 0 0 1px rgba(168, 45, 104, 0.14),
+    inset 0 -18px 26px rgba(168, 45, 104, 0.2);
+}
+
+/* SVG fur layer replaced by WebGL background — kill the leftover overlays */
+[data-skin="plush"] .device::after,
+[data-skin="plush"] .device::before {
+  background: none;
+  animation: none;
+}
+
+[data-skin="plush"] .chassis-frame {
+  border-radius: 40px 40px 48px 48px;
+  background:
+    radial-gradient(circle at 50% 40%, #fbd7e6 0%, var(--plush-blush) 60%, var(--plush-rose) 100%);
+  border: 1px solid rgba(255, 247, 251, 0.6);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 247, 251, 0.72),
+    inset 0 -24px 32px rgba(168, 45, 104, 0.22),
+    inset 0 0 0 1px rgba(168, 45, 104, 0.1),
+    0 22px 42px rgba(120, 30, 72, 0.22);
+}
+
+[data-skin="plush"] .chassis-frame::before {
+  border-radius: 32px 32px 40px 40px;
+  border: 1px solid rgba(255, 247, 251, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(168, 45, 104, 0.14);
+}
+
+/* Chassis frame — subtle inner glow, no fur overlay (bg canvas handles that) */
+[data-skin="plush"] .chassis-frame::after {
+  background: none;
+  animation: none;
+}
+
+/* ---------- Panel shells (velvet pads) ---------- */
+
+[data-skin="plush"] .panel-shell {
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 30% 20%, #fbd7e6 0%, var(--plush-blush) 55%, var(--plush-rose) 100%);
+  border: 1px solid rgba(255, 247, 251, 0.6);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 247, 251, 0.7),
+    inset 0 -14px 24px rgba(168, 45, 104, 0.2),
+    inset 0 0 0 1px rgba(168, 45, 104, 0.1),
+    0 16px 32px rgba(120, 30, 72, 0.22),
+    0 2px 8px rgba(255, 220, 234, 0.5);
+  backdrop-filter: none;
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .panel-shell::before {
+  border-radius: 22px;
+  border: 1px solid rgba(255, 247, 251, 0.46);
+}
+
+/* Panels — translucent ivory tiles over the fur background */
+[data-skin="plush"] .panel-shell {
+  background: linear-gradient(180deg, rgba(255, 247, 251, 0.9) 0%, rgba(255, 230, 240, 0.78) 100%);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+}
+
+[data-skin="plush"] .header-shell {
+  padding: 16px 20px;
+}
+
+/* ---------- Brand ---------- */
+
+[data-skin="plush"] .brand {
+  color: var(--plush-plum);
+  text-shadow: 0 1px rgba(255, 247, 251, 0.6);
+}
+
+[data-skin="plush"] .brand span {
+  color: #6a2d4e;
+  font-weight: 400;
+}
+
+[data-skin="plush"] .brand-kicker {
+  background: rgba(255, 247, 251, 0.7);
+  color: var(--plush-raspberry);
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border: 1px solid rgba(168, 45, 104, 0.2);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.9),
+    0 2px 4px rgba(168, 45, 104, 0.14);
+}
+
+/* ---------- Wallet dock ---------- */
+
+[data-skin="plush"] .wallet-dock {
+  padding: 10px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 30% 20%, #fbd7e6 0%, var(--plush-blush) 60%, var(--plush-rose) 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 247, 251, 0.8),
+    inset 0 -8px 16px rgba(168, 45, 104, 0.18),
+    inset 0 0 0 1px rgba(168, 45, 104, 0.1),
+    0 10px 20px rgba(120, 30, 72, 0.18);
+}
+
+[data-skin="plush"] .wallet-adapter-button-trigger,
+[data-skin="plush"] .wallet-placeholder {
+  border-radius: 16px !important;
+  background:
+    radial-gradient(circle at 30% 30%, #ffffff 0%, var(--plush-ivory) 60%, #fde3ee 100%) !important;
+  color: var(--plush-plum) !important;
+  font-family: var(--plush-font) !important;
+  font-weight: 700 !important;
+  min-height: 46px;
+  border: 1px solid rgba(168, 45, 104, 0.22) !important;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 6px rgba(168, 45, 104, 0.12),
+    0 4px 10px rgba(168, 45, 104, 0.2) !important;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+[data-skin="plush"] .wallet-adapter-button-trigger:hover,
+[data-skin="plush"] .wallet-placeholder:hover {
+  transform: scale(1.02);
+}
+
+[data-skin="plush"] .privy-wallet-menu {
+  border-radius: 16px;
+  border: 1px solid rgba(168, 45, 104, 0.22);
+  background:
+    radial-gradient(circle at 30% 20%, #fbd7e6 0%, var(--plush-blush) 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 247, 251, 0.8),
+    0 12px 24px rgba(120, 30, 72, 0.22);
+}
+
+[data-skin="plush"] .privy-wallet-menu-item {
+  border-radius: 12px;
+  color: var(--plush-plum);
+  font-family: var(--plush-font);
+  font-weight: 700;
+  background:
+    radial-gradient(circle at 30% 20%, #ffffff 0%, var(--plush-ivory) 60%, #fde3ee 100%);
+}
+
+/* ---------- Screens (ivory inserts) ---------- */
+
+[data-skin="plush"] .screen {
+  border-radius: 22px;
+  border: 7px solid #fbd7e6;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 20% 15%, #ffffff 0%, var(--plush-ivory) 55%, #fdeaf3 100%);
+  color: var(--plush-plum);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.9),
+    inset 0 0 0 1px rgba(168, 45, 104, 0.14),
+    inset 0 -10px 18px rgba(168, 45, 104, 0.1),
+    0 10px 20px rgba(120, 30, 72, 0.18);
+}
+
+[data-skin="plush"] .screen::after {
+  background: linear-gradient(112deg, transparent 0%, rgba(255, 255, 255, 0.6) 46%, transparent 68%);
+  opacity: 0.4;
+}
+
+[data-skin="plush"] .screen-title h2 {
+  color: var(--plush-plum);
+  font-weight: 700;
+}
+
+[data-skin="plush"] .balance-screen span,
+[data-skin="plush"] .mini-screen span,
+[data-skin="plush"] .screen-title span,
+[data-skin="plush"] .engine-mini-screen span,
+[data-skin="plush"] .balance-chip span,
+[data-skin="plush"] .metric span,
+[data-skin="plush"] .position-details-field span {
+  color: var(--plush-raspberry);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+[data-skin="plush"] .balance-screen strong {
+  color: var(--plush-plum);
+}
+
+/* ---------- Chips (ivory inserts nested into fur) ---------- */
+
+[data-skin="plush"] .balance-chip {
+  min-height: 56px;
+  border-radius: 14px;
+  border: 1px solid rgba(168, 45, 104, 0.18);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde3ee 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 6px rgba(168, 45, 104, 0.1);
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .balance-chip strong {
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .mini-screen {
+  min-height: 108px;
+  border-radius: 16px;
+  padding: 12px;
+  border: 1px solid rgba(168, 45, 104, 0.18);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde3ee 100%);
+  color: var(--plush-plum);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.95),
+    inset 0 -4px 8px rgba(168, 45, 104, 0.12),
+    inset 0 0 0 1px rgba(168, 45, 104, 0.05);
+}
+
+[data-skin="plush"] .mini-screen strong {
+  color: var(--plush-plum);
+  text-transform: lowercase;
+  font-weight: 700;
+}
+
+[data-skin="plush"] .engine-mini-screen {
+  border-radius: 12px;
+  border: 1px solid rgba(168, 45, 104, 0.2);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde3ee 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.9),
+    inset 0 -2px 5px rgba(168, 45, 104, 0.1);
+}
+
+[data-skin="plush"] .engine-mini-screen strong {
+  color: var(--plush-plum);
+}
+
+/* ---------- Control module (fur-recessed cradle for ivory) ---------- */
+
+[data-skin="plush"] .control-module {
+  border-radius: 22px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 25% 20%, #fbd7e6 0%, var(--plush-blush) 70%, #efa5c3 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 247, 251, 0.75),
+    inset 0 -8px 14px rgba(168, 45, 104, 0.18),
+    inset 0 0 0 1px rgba(168, 45, 104, 0.08);
+}
+
+/* ---------- Risk dots (pearl keys) ---------- */
+
+[data-skin="plush"] .risk-slider {
+  gap: 10px;
+  margin-top: 14px;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(168, 45, 104, 0.1);
+  box-shadow:
+    inset 0 2px 4px rgba(168, 45, 104, 0.22),
+    inset 0 -1px 0 rgba(255, 247, 251, 0.5);
+}
+
+[data-skin="plush"] .risk-dot {
+  border-radius: 14px;
+  min-height: 42px;
+  border: 1px solid rgba(168, 45, 104, 0.22);
+  color: var(--plush-plum);
+  font-weight: 700;
+  background:
+    radial-gradient(circle at 30% 25%, #ffffff 0%, var(--plush-ivory) 55%, #fcd9e6 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.98),
+    inset 0 -4px 8px rgba(168, 45, 104, 0.14),
+    0 3px 6px rgba(168, 45, 104, 0.18);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+[data-skin="plush"] .risk-dot:hover {
+  transform: scale(1.02);
+}
+
+[data-skin="plush"] .risk-dot.active {
+  transform: translateY(1px);
+  color: var(--plush-ivory);
+  border-color: rgba(74, 27, 55, 0.42);
+  background:
+    radial-gradient(circle at 30% 25%, #d64a86 0%, var(--plush-raspberry) 70%, #7f1f4e 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(74, 27, 55, 0.35),
+    inset 0 1px rgba(255, 255, 255, 0.3),
+    0 1px 2px rgba(74, 27, 55, 0.3);
+}
+
+[data-skin="plush"] .risk-dot:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 5px rgba(168, 45, 104, 0.3),
+    0 1px 2px rgba(168, 45, 104, 0.2);
+}
+
+/* ---------- Faders / sliders ---------- */
+
+[data-skin="plush"] .fader-control input::-webkit-slider-runnable-track {
+  height: 12px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.46), transparent 44%),
+    linear-gradient(90deg, var(--plush-raspberry) 0%, #d64a86 50%, var(--plush-rose) 100%);
+  box-shadow:
+    inset 0 1px 3px rgba(74, 27, 55, 0.35),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.3),
+    0 2px 4px rgba(168, 45, 104, 0.2);
+}
+
+[data-skin="plush"] .fader-control input::-webkit-slider-thumb {
+  width: 30px;
+  height: 46px;
+  margin-top: -17px;
+  border-radius: 50% / 42%;
+  border: 1px solid rgba(168, 45, 104, 0.42);
+  background:
+    radial-gradient(circle at 30% 25%, #ffffff 0%, var(--plush-ivory) 55%, #fbcfe2 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.98),
+    inset 0 -4px 7px rgba(168, 45, 104, 0.18),
+    0 4px 8px rgba(168, 45, 104, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+[data-skin="plush"] .fader-control input::-moz-range-track {
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--plush-raspberry) 0%, #d64a86 50%, var(--plush-rose) 100%);
+  box-shadow: inset 0 1px 3px rgba(74, 27, 55, 0.35);
+}
+
+[data-skin="plush"] .fader-control input::-moz-range-thumb {
+  width: 30px;
+  height: 46px;
+  border-radius: 50% / 42%;
+  border: 1px solid rgba(168, 45, 104, 0.42);
+  background: radial-gradient(circle at 30% 25%, #ffffff 0%, var(--plush-ivory) 55%, #fbcfe2 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.98),
+    0 4px 8px rgba(168, 45, 104, 0.25);
+}
+
+[data-skin="plush"] .fader-slot {
+  background: rgba(168, 45, 104, 0.28);
+  box-shadow:
+    inset 0 2px 3px rgba(74, 27, 55, 0.4),
+    1px 0 rgba(255, 247, 251, 0.5);
+}
+
+[data-skin="plush"] .fader-scale span {
+  color: rgba(74, 27, 55, 0.72);
+  font-weight: 700;
+}
+
+[data-skin="plush"] .fader-scale span::before {
+  background: rgba(168, 45, 104, 0.5);
+  box-shadow: 1px 0 rgba(255, 247, 251, 0.5);
+}
+
+/* ---------- Buttons (main CTA, secondary, back) ---------- */
+
+[data-skin="plush"] .key-button,
+[data-skin="plush"] .blink-button,
+[data-skin="plush"] .review-cta,
+[data-skin="plush"] .trade-now-button,
+[data-skin="plush"] .secondary,
+[data-skin="plush"] .back-button {
+  border-radius: 18px;
+  border: 1px solid rgba(74, 27, 55, 0.3);
+  color: var(--plush-ivory);
+  font-family: var(--plush-font);
+  font-weight: 700;
+  background:
+    radial-gradient(circle at 30% 25%, #d64a86 0%, var(--plush-raspberry) 65%, #7f1f4e 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.3),
+    inset 0 -5px 10px rgba(74, 27, 55, 0.3),
+    0 6px 14px rgba(168, 45, 104, 0.32),
+    0 2px 4px rgba(255, 220, 234, 0.4);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+}
+
+[data-skin="plush"] .key-button::after,
+[data-skin="plush"] .blink-button::after,
+[data-skin="plush"] .review-cta::after,
+[data-skin="plush"] .trade-now-button::after,
+[data-skin="plush"] .secondary::after,
+[data-skin="plush"] .back-button::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 247, 251, 0.5), transparent);
+  top: 5px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+[data-skin="plush"] .key-button:hover,
+[data-skin="plush"] .review-cta:hover,
+[data-skin="plush"] .trade-now-button:hover,
+[data-skin="plush"] .blink-button:hover,
+[data-skin="plush"] .secondary:hover,
+[data-skin="plush"] .back-button:hover {
+  transform: scale(1.02);
+  filter: brightness(1.04);
+}
+
+[data-skin="plush"] .get-opportunities,
+[data-skin="plush"] .key-button {
+  min-height: 60px;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+
+[data-skin="plush"] .blink-button {
+  min-height: 42px;
+  padding: 0 14px;
+  font-size: 13px;
+  animation: plushPulse 1.6s infinite;
+}
+
+[data-skin="plush"] .review-cta {
+  min-height: 60px;
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+[data-skin="plush"] .trade-now-button {
+  min-height: 64px;
+  margin-top: 12px;
+  border-radius: 22px;
+  font-size: 18px;
+  animation: plushPulse 1.8s infinite;
+}
+
+[data-skin="plush"] .secondary {
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+[data-skin="plush"] .back-button {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--plush-ivory);
+}
+
+[data-skin="plush"] .key-button:active,
+[data-skin="plush"] .blink-button:active,
+[data-skin="plush"] .review-cta:active,
+[data-skin="plush"] .trade-now-button:active,
+[data-skin="plush"] .secondary:active,
+[data-skin="plush"] .back-button:active {
+  transform: scale(0.98);
+  box-shadow:
+    inset 0 2px 5px rgba(74, 27, 55, 0.4),
+    0 2px 4px rgba(168, 45, 104, 0.2);
+}
+
+[data-skin="plush"] .key-button:disabled,
+[data-skin="plush"] .blink-button:disabled,
+[data-skin="plush"] .review-cta:disabled,
+[data-skin="plush"] .trade-now-button:disabled,
+[data-skin="plush"] .secondary:disabled {
+  animation: none;
+  opacity: 0.55;
+}
+
+/* Arm-all / inline position actions get a softer ivory variant */
+[data-skin="plush"] .position-actions .secondary,
+[data-skin="plush"] .positions-panel .secondary,
+[data-skin="plush"] .arm-all-button {
+  background:
+    radial-gradient(circle at 30% 25%, #ffffff 0%, var(--plush-ivory) 55%, #fdd4e4 100%);
+  color: var(--plush-plum);
+  border: 1px solid rgba(168, 45, 104, 0.26);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 6px rgba(168, 45, 104, 0.12),
+    0 3px 6px rgba(168, 45, 104, 0.18);
+}
+
+[data-skin="plush"] .position-actions .secondary::after,
+[data-skin="plush"] .positions-panel .secondary::after,
+[data-skin="plush"] .arm-all-button::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+}
+
+/* Primary close-now stays raspberry */
+[data-skin="plush"] .position-actions .secondary:first-child {
+  background:
+    radial-gradient(circle at 30% 25%, #d64a86 0%, var(--plush-raspberry) 65%, #7f1f4e 100%);
+  color: var(--plush-ivory);
+  border-color: rgba(74, 27, 55, 0.3);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.3),
+    inset 0 -4px 8px rgba(74, 27, 55, 0.3),
+    0 4px 10px rgba(168, 45, 104, 0.3);
+  animation: plushPulse 1.6s infinite;
+}
+
+/* ---------- Opportunity cards (ivory floating) ---------- */
+
+[data-skin="plush"] .opportunities-screen {
+  border-width: 9px;
+}
+
+[data-skin="plush"] .op-summary {
+  border: 1px solid rgba(168, 45, 104, 0.2);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde6f0 100%);
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .op-summary span {
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .op-card {
+  border-radius: 14px;
+  border: 1px solid rgba(233, 137, 181, 0.6);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 65%, #fde6f0 100%);
+  color: var(--plush-plum);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.95),
+    0 4px 10px rgba(168, 45, 104, 0.14);
+}
+
+[data-skin="plush"] .op-card.selected {
+  border-color: var(--plush-raspberry);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.95),
+    0 0 0 2px rgba(168, 45, 104, 0.3),
+    0 6px 14px rgba(168, 45, 104, 0.22);
+}
+
+[data-skin="plush"] .token-title strong {
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .token-title span,
+[data-skin="plush"] .metric span,
+[data-skin="plush"] .position span,
+[data-skin="plush"] .hint,
+[data-skin="plush"] .subtle {
+  color: var(--plush-raspberry);
+}
+
+[data-skin="plush"] .hint {
+  color: #7a3357;
+  font-weight: 400;
+}
+
+[data-skin="plush"] .metric {
+  border-radius: 10px;
+  border: 1px solid rgba(168, 45, 104, 0.16);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde6f0 100%);
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .metric strong {
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .rationale {
+  color: #5c2440;
+}
+
+[data-skin="plush"] .embedded-review {
+  border-radius: 16px;
+  border: 1px solid rgba(168, 45, 104, 0.2);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fdd9e6 100%);
+}
+
+[data-skin="plush"] .trade-plan-metric b {
+  background: rgba(168, 45, 104, 0.1);
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .trade-plan-metric b span {
+  color: var(--plush-raspberry);
+}
+
+/* ---------- Positions panel + rows (ivory floating cards) ---------- */
+
+[data-skin="plush"] .positions-panel {
+  border-radius: 16px;
+  border: 1px solid rgba(168, 45, 104, 0.18);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 75%, #fde6f0 100%);
+}
+
+[data-skin="plush"] .positions-panel-head h3,
+[data-skin="plush"] .position-columns h4 {
+  color: var(--plush-plum);
+  font-weight: 700;
+}
+
+[data-skin="plush"] .positions-panel-head span {
+  color: var(--plush-raspberry);
+}
+
+[data-skin="plush"] .position {
+  border-radius: 12px;
+  border: 1px solid rgba(233, 137, 181, 0.7);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde6f0 100%);
+  color: var(--plush-plum);
+  box-shadow: 0 2px 6px rgba(168, 45, 104, 0.12);
+}
+
+[data-skin="plush"] .position strong,
+[data-skin="plush"] .position div {
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .position span {
+  color: var(--plush-raspberry);
+}
+
+[data-skin="plush"] .position-clickable:hover {
+  border-color: var(--plush-raspberry);
+  box-shadow: 0 0 0 1px rgba(168, 45, 104, 0.3), 0 4px 10px rgba(168, 45, 104, 0.18);
+}
+
+[data-skin="plush"] .open-position-list::-webkit-scrollbar-track,
+[data-skin="plush"] .closed-position-list::-webkit-scrollbar-track {
+  background: rgba(168, 45, 104, 0.1);
+  border: 1px solid rgba(168, 45, 104, 0.14);
+}
+
+[data-skin="plush"] .open-position-list::-webkit-scrollbar-thumb,
+[data-skin="plush"] .closed-position-list::-webkit-scrollbar-thumb {
+  background: rgba(168, 45, 104, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 247, 251, 0.4);
+}
+
+/* ---------- Gain / loss semantics ---------- */
+
+[data-skin="plush"] .positive {
+  color: #2e7d5b;
+}
+
+[data-skin="plush"] .negative {
+  color: var(--plush-raspberry);
+}
+
+/* ---------- Console note / errors ---------- */
+
+[data-skin="plush"] .console-note {
+  color: #5c2440;
+  font-weight: 400;
+}
+
+[data-skin="plush"] .error-screen {
+  border-radius: 12px;
+  border: 1px solid rgba(168, 45, 104, 0.4);
+  background: #fde6ee;
+  color: var(--plush-raspberry);
+}
+
+/* ---------- Network warning ---------- */
+
+[data-skin="plush"] .network-warning {
+  border-color: #e9b48f;
+}
+
+[data-skin="plush"] .network-warning strong {
+  color: #a85a1d;
+}
+
+[data-skin="plush"] .network-warning p {
+  color: #6d3414;
+}
+
+/* ---------- Overlays / popups ---------- */
+
+[data-skin="plush"] .position-opened-overlay,
+[data-skin="plush"] .position-details-overlay {
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255, 247, 251, 0.42), transparent 36%),
+    radial-gradient(circle at 80% 82%, rgba(168, 45, 104, 0.22), transparent 42%),
+    rgba(74, 27, 55, 0.4);
+}
+
+[data-skin="plush"] .position-opened-popup,
+[data-skin="plush"] .position-details-popup {
+  border-radius: 28px;
+  border: 1px solid rgba(255, 247, 251, 0.6);
+  background:
+    radial-gradient(circle at 30% 20%, #fbd7e6 0%, var(--plush-blush) 60%, var(--plush-rose) 100%);
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.3) 0 0.5px, transparent 1.1px),
+    radial-gradient(circle at 70% 50%, rgba(168, 45, 104, 0.12) 0 0.5px, transparent 1.1px),
+    radial-gradient(circle at 35% 85%, rgba(255, 247, 251, 0.3) 0 0.5px, transparent 1.1px),
+    radial-gradient(circle at 30% 20%, #fbd7e6 0%, var(--plush-blush) 60%, var(--plush-rose) 100%);
+  background-size: 4px 4px, 5px 5px, 6px 6px, 100% 100%;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 247, 251, 0.72),
+    inset 0 -22px 32px rgba(168, 45, 104, 0.22),
+    0 28px 56px rgba(74, 27, 55, 0.42);
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .position-opened-popup::before,
+[data-skin="plush"] .position-details-popup::before {
+  border-radius: 22px;
+  border: 1px solid rgba(255, 247, 251, 0.5);
+}
+
+[data-skin="plush"] .position-opened-popup h3,
+[data-skin="plush"] .position-details-head h3 {
+  color: var(--plush-plum);
+  font-weight: 700;
+}
+
+[data-skin="plush"] .position-opened-popup p {
+  color: #5c2440;
+}
+
+[data-skin="plush"] .position-opened-kicker,
+[data-skin="plush"] .position-details-kicker {
+  border: 1px solid rgba(168, 45, 104, 0.3);
+  background: rgba(255, 247, 251, 0.78);
+  color: var(--plush-raspberry);
+  font-family: var(--plush-font);
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+[data-skin="plush"] .position-details-head {
+  background: linear-gradient(180deg, rgba(255, 247, 251, 0.78), rgba(255, 247, 251, 0.3));
+}
+
+[data-skin="plush"] .position-details-field {
+  border-radius: 12px;
+  border: 1px solid rgba(168, 45, 104, 0.2);
+  background:
+    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fdd9e6 100%);
+}
+
+[data-skin="plush"] .position-details-field strong {
+  color: var(--plush-plum);
+}
+
+[data-skin="plush"] .position-details-links a {
+  color: var(--plush-ivory);
+  border: 1px solid rgba(74, 27, 55, 0.3);
+  background:
+    radial-gradient(circle at 30% 25%, #d64a86 0%, var(--plush-raspberry) 65%, #7f1f4e 100%);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.3),
+    0 3px 6px rgba(168, 45, 104, 0.22);
+}
+
+/* ---------- Hover deposit modal (keep raspberry theme) ---------- */
+
+[data-skin="plush"] .hover-deposit-modal {
+  border-radius: 16px;
+  border: 1px solid rgba(74, 27, 55, 0.4);
+  background:
+    radial-gradient(circle at 30% 25%, #d64a86 0%, var(--plush-raspberry) 65%, #7f1f4e 100%);
+  color: var(--plush-ivory);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.2),
+    0 16px 28px rgba(74, 27, 55, 0.4);
+}
+
+[data-skin="plush"] .hover-deposit-modal::after {
+  border-color: var(--plush-raspberry) transparent transparent transparent;
+}
+
+[data-skin="plush"] .hover-deposit-modal strong {
+  color: var(--plush-ivory);
+}
+
+[data-skin="plush"] .hover-deposit-modal p {
+  color: #fdd9e6;
+}
+
+/* ---------- Animations ---------- */
+
+@keyframes plushPulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.08);
+  }
+}
+
+/* ---------- Plush header: keep logo visible, add 3D fur orb beside it ---------- */
+
+/* Keep original logo visible for the plush skin (mask-cutout is a glass/grid trick only) */
+[data-skin="plush"] .brand-logo {
+  opacity: 1;
+}
+
+[data-skin="plush"] .brand-logo-skin {
+  display: none;
+}
+
+/* Brand row becomes flex so orb sits inline before the logo */
+[data-skin="plush"] .brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+[data-skin="plush"] .brand-kicker {
+  flex-basis: 100%;
+}
+
+[data-skin="plush"] .brand-logo-wrap {
+  position: relative;
+  padding-left: 0;
+}
+
+/* 3D plush fur orb — real WebGL shell texturing, 36 shells, mouse-reactive */
+[data-skin="plush"] .plush-fur-3d {
+  width: 128px;
+  height: 128px;
+  flex-shrink: 0;
+  z-index: 5;
+  filter: drop-shadow(0 12px 20px rgba(168, 45, 104, 0.5));
+  cursor: grab;
+  order: -1; /* orb sits BEFORE the logo in the flex order */
+  position: static;
+}
+
+[data-skin="plush"] .plush-fur-3d canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
