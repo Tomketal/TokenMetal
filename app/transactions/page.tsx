@@ -46,13 +46,13 @@ export default async function TransactionsPage({
           }}
         >
           <div>
-            <h1 style={{ margin: 0, fontSize: 32 }}>Transactions Database</h1>
+            <h1 style={{ margin: 0, fontSize: 32 }}>Your Activity</h1>
             <p style={{ margin: "8px 0 0", opacity: 0.82 }}>
-              Open this page from your connected wallet link so only your wallet data is shown.
+              Open this page from your account link so only your activity is shown.
             </p>
           </div>
           <Link href="/" style={linkButtonStyle}>
-            Back To Trading
+            Back to investing
           </Link>
         </header>
       </main>
@@ -94,7 +94,7 @@ export default async function TransactionsPage({
         }}
       >
         <div>
-          <h1 style={{ margin: 0, fontSize: 32 }}>Transactions Database</h1>
+          <h1 style={{ margin: 0, fontSize: 32 }}>Your Activity</h1>
           <p style={{ margin: "8px 0 0", opacity: 0.82 }}>
             Owner: <code>{owner}</code>
           </p>
@@ -119,7 +119,7 @@ export default async function TransactionsPage({
             href="/"
             style={linkButtonStyle}
           >
-            Back To Trading
+            Back to investing
           </Link>
         </div>
       </header>
@@ -132,12 +132,12 @@ export default async function TransactionsPage({
           gap: 10
         }}
       >
-        <MetricCard label="Total Transactions" value={String(summary.totalTransactions)} />
+        <MetricCard label="Total Trades" value={String(summary.totalTransactions)} />
         <MetricCard label="Buys / Sells" value={`${summary.buyCount} / ${summary.sellCount}`} />
         <MetricCard label="Volume (USDC)" value={formatMoney(summary.tradedVolumeUsdc)} />
-        <MetricCard label="Realized PnL" value={formatMoney(summary.realizedPnlUsdc)} />
-        <MetricCard label="Unrealized PnL (Open)" value={formatMoney(unrealizedPnlUsd)} />
-        <MetricCard label="Closed PnL (Positions)" value={formatMoney(closedPnlUsd)} />
+        <MetricCard label="Realized Profit/Loss" value={formatMoney(summary.realizedPnlUsdc)} />
+        <MetricCard label="Unrealized Profit/Loss (Open)" value={formatMoney(unrealizedPnlUsd)} />
+        <MetricCard label="Closed Profit/Loss" value={formatMoney(closedPnlUsd)} />
         <MetricCard label="Total Fees" value={formatMoney(summary.totalFeesUsdc)} />
         <MetricCard label="Win Rate" value={`${formatPercent(summary.winRatePercent)} (${summary.winningSellCount}/${summary.sellCount})`} />
         <MetricCard label="Open / Closed Positions" value={`${openPositions.length} / ${closedPositions.length}`} />
@@ -163,17 +163,17 @@ export default async function TransactionsPage({
               <Th>Amount Out</Th>
               <Th>Value (USDC)</Th>
               <Th>Fee</Th>
-              <Th>PnL</Th>
-              <Th>PnL %</Th>
-              <Th>Signature</Th>
-              <Th>Engine</Th>
+              <Th>Profit/Loss</Th>
+              <Th>Profit/Loss %</Th>
+              <Th>Trade ID</Th>
+              <Th>Mode</Th>
             </tr>
           </thead>
           <tbody>
             {transactions.length === 0 ? (
               <tr>
                 <td colSpan={12} style={{ padding: 16, opacity: 0.72 }}>
-                  No transactions yet. Execute a trade to start filling the database.
+                  No activity yet. Make your first investment to see it here.
                 </td>
               </tr>
             ) : (
