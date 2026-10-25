@@ -1,5 +1,6 @@
 "use client";
 
+import "./invest.css";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Connection, PublicKey, SystemProgram, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { usePrivy } from "@privy-io/react-auth";
@@ -8,7 +9,7 @@ import Image from "next/image";
 import bs58 from "bs58";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { pct, usd } from "@/lib/number";
-import { holdingPeriods, riskProfiles, type HoldingPeriod, type Position, type PreparedTrade, type RiskProfile, type TokenRecommendation } from "@/lib/types";
+import { holdingPeriods, type HoldingPeriod, type Position, type PreparedTrade, type RiskProfile, type TokenRecommendation } from "@/lib/types";
 import { PrivyLoginButton } from "../components/PrivyLoginButton";
 
 const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "mainnet-beta";
@@ -877,7 +878,7 @@ export default function Home() {
                   <strong>{riskProfile}</strong>
                 </div>
                 <div className="risk-slider">
-                  {riskProfiles.map((risk, index) => (
+                  {(["low", "medium", "high"] as const).map((risk) => (
                     <button
                       key={risk}
                       className={`risk-dot ${riskProfile === risk ? "active" : ""}`}
@@ -885,7 +886,7 @@ export default function Home() {
                       aria-label={risk}
                       onClick={() => setRiskProfile(risk)}
                     >
-                      <span>{index + 1}</span>
+                      <span>{risk.charAt(0).toUpperCase() + risk.slice(1)}</span>
                     </button>
                   ))}
                 </div>
@@ -1037,7 +1038,7 @@ export default function Home() {
                       </>
                     ) : (
                       <>
-                        {recommendations.length === 0 ? <p className="hint">to inniciate connect your wallet, set controls, then press get opportunities.</p> : null}
+                        {recommendations.length === 0 ? <p className="hint">To get started, sign in, set your profile, then press get opportunities.</p> : null}
                         {recommendations.length ? (
                           <div className="op-summary">
                             {tradeEngine === "raydium-devnet" ? (
