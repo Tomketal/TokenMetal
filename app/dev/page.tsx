@@ -131,6 +131,8 @@ export default function DevPage() {
   }
 
   const investAmount = balance && balance.balance > 0 ? Math.floor(balance.balance * allocation) / 100 : Number(amount);
+  const minTrade = status?.minLiveTradeUsdc ?? 1;
+  const belowMinimum = Boolean(status && !status.sandboxTrading && investAmount < minTrade);
 
   const getRecommendations = () =>
     run("Recommendations", async () => {
@@ -162,31 +164,46 @@ export default function DevPage() {
       );
     });
 
-  const executeBuy = () =>
-    run("Buy", async () => {
-      if (!address || !prepared) return;
-      let trade = prepared;
-      const signature = status?.sandboxTrading
-        ? "dry-run"
-        : await signAndSend(trade.swapTransaction, async () => {
-            const { preparedTrade } = await post<{ preparedTrade: PreparedTrade }>("/api/trade", {
-              action: "prepare",
-              owner: address,
-              amountUsdc: trade.amountUsdc,
-              recommendation: trade.recommendation
-            });
-            trade = preparedTrade;
-            return preparedTrade.swapTransaction;
-          });
-      const { position } = await post<{ position: Position }>("/api/trade", {
-        action: "confirm",
+  const executeBuy = () => run("Buy", () => (prepared ? signAndOpen(prepared) : Promise.resolve()));
+
+  // One click from a recommendation card: quote, wallet signature, position.
+  const investIn = (recommendation: TokenRecommendation, amountUsdc: number) =>
+    run("Invest", async () => {
+      if (!address) throw new Error("Connect a wallet first.");
+      const { preparedTrade } = await post<{ preparedTrade: PreparedTrade }>("/api/trade", {
+        action: "prepare",
         owner: address,
-        signature,
-        preparedTrade: trade
+        amountUsdc,
+        recommendation
       });
-      setPrepared(null);
-      say(`Position opened: ${position.tokenAmountUi.toFixed(4)} ${position.tokenSymbol}`);
+      say(`Quote: ${preparedTrade.amountUsdc} USDC -> ~${preparedTrade.expectedTokenAmountUi.toFixed(4)} ${recommendation.tokenSymbol}`);
+      await signAndOpen(preparedTrade);
     });
+
+  async function signAndOpen(initial: PreparedTrade) {
+    if (!address) return;
+    let trade = initial;
+    const signature = status?.sandboxTrading
+      ? "dry-run"
+      : await signAndSend(trade.swapTransaction, async () => {
+          const { preparedTrade } = await post<{ preparedTrade: PreparedTrade }>("/api/trade", {
+            action: "prepare",
+            owner: address,
+            amountUsdc: trade.amountUsdc,
+            recommendation: trade.recommendation
+          });
+          trade = preparedTrade;
+          return preparedTrade.swapTransaction;
+        });
+    const { position } = await post<{ position: Position }>("/api/trade", {
+      action: "confirm",
+      owner: address,
+      signature,
+      preparedTrade: trade
+    });
+    setPrepared(null);
+    say(`Position opened: ${position.tokenAmountUi.toFixed(4)} ${position.tokenSymbol}`);
+  }
 
   const closePosition = (position: Position) =>
     run("Close", async () => {
@@ -282,6 +299,11 @@ export default function DevPage() {
           Suggested for {riskProfile}: {suggestedAllocation[riskProfile]}% · Amount to invest: <b>{investAmount} USDC</b>
           {!(balance && balance.balance > 0) && " (no USDC balance; using the USDC field below)"}
         </p>
+        {belowMinimum && (
+          <p style={styles.warning}>
+            Live trades need at least {minTrade} USDC. Move the slider up (or add USDC) to invest.
+          </p>
+        )}
         <button disabled={busy} onClick={getRecommendations}>
           Get 3 recommendations
         </button>
@@ -303,8 +325,8 @@ export default function DevPage() {
               </p>
               <p style={styles.small}>{recommendation.entryRationale}</p>
               <p style={styles.small}>{recommendation.profileMatch}</p>
-              <button disabled={busy} onClick={() => prepareBuy(recommendation, investAmount)}>
-                Invest {investAmount} USDC in {recommendation.tokenSymbol}
+              <button disabled={busy || belowMinimum} onClick={() => investIn(recommendation, investAmount)}>
+                {belowMinimum ? `Minimum ${minTrade} USDC` : `Invest ${investAmount} USDC in ${recommendation.tokenSymbol}`}
               </button>
             </div>
           ))}
@@ -420,6 +442,7 @@ const styles: Record<string, CSSProperties> = {
   heading: { color: "#c6ff00", fontSize: 18, margin: "0 0 12px" },
   muted: { color: "#aaa", fontSize: 13 },
   small: { color: "#ccc", fontSize: 12, lineHeight: 1.5 },
+  warning: { color: "#ff6b6b", fontSize: 13 },
   options: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginTop: 12 },
   option: { border: "1px solid #c6ff00", borderRadius: 8, padding: 12 },
   active: { outline: "2px solid #c6ff00" },
