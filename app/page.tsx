@@ -26,7 +26,7 @@ const threeSteps = [
   {
     step: "03",
     title: "Invest in one flow",
-    body: "Confirm sizing, sign once with your wallet, and execute through Jupiter."
+    body: "Confirm sizing, sign once with your wallet, and execute through Horizon."
   }
 ];
 
@@ -41,10 +41,10 @@ const demoFlow = [
 const trustSignals = [
   "Nansen-powered liquidity, holder breadth, and smart-money flow",
   "Wallet-signed transactions with user confirmation",
-  "Wallet-signed execution through Jupiter",
-  "Live on Solana mainnet",
+  "Wallet-signed execution through Horizon",
+  "Live on Stellar mainnet",
   "Privy wallet connection",
-  "Built for beginners entering Solana DeFi"
+  "Built for beginners entering Stellar DeFi"
 ];
 
 function LaunchButton({ variant = "primary" }: { variant?: "primary" | "secondary" }) {
@@ -89,10 +89,10 @@ export default function LandingPage() {
 
       <section className="hero-section" id="top">
         <div className="hero-copy">
-          <p className="eyebrow">Live on Solana mainnet</p>
-          <h1>Solana investing made easy.</h1>
+          <p className="eyebrow">Live on Stellar mainnet</p>
+          <h1>Stellar investing made easy.</h1>
           <p className="hero-lede">
-            Token Metal turns crypto investing into a guided three-step flow for beginner Solana investors:
+            Token Metal turns crypto investing into a guided three-step flow for beginner Stellar investors:
             choose your profile, get ranked recommendations, and invest in one wallet-signed transaction.
           </p>
           <div className="hero-actions">
@@ -104,7 +104,7 @@ export default function LandingPage() {
           <div className="hero-stat-strip" aria-label="Token Metal summary">
             <span>Three inputs in</span>
             <strong>One confident trade out</strong>
-            <span>Nansen signals + Jupiter execution</span>
+            <span>Nansen signals + Horizon execution</span>
           </div>
         </div>
 
@@ -191,7 +191,7 @@ export default function LandingPage() {
       <section className="content-band problem-band" id="problem">
         <div className="section-heading">
           <p className="eyebrow">The beginner problem</p>
-          <h2>First-time Solana investors are asked to act like pros before their first trade.</h2>
+          <h2>First-time Stellar investors are asked to act like pros before their first trade.</h2>
         </div>
         <div className="problem-grid">
           {painPoints.map((point) => (
@@ -279,7 +279,7 @@ export default function LandingPage() {
           <p>
             Tomás focuses on Web3 growth and distribution, with experience working with Base, Hedera,
             Algorand Foundation, and OKX. Token Metal brings that go-to-market lens into a product built
-            to help new users enter Solana DeFi with more confidence.
+            to help new users enter Stellar DeFi with more confidence.
           </p>
           <a className="founder-link" href={founderXUrl} target="_blank" rel="noreferrer">
             <XIcon />
@@ -290,7 +290,7 @@ export default function LandingPage() {
 
       <section className="final-cta">
         <p className="eyebrow">Live MVP</p>
-        <h2>Ready for your first guided Solana trade?</h2>
+        <h2>Ready for your first guided Stellar trade?</h2>
         <p>Connect your wallet, set your profile, review three ranked options, and execute in one flow.</p>
         <LaunchButton />
       </section>
