@@ -1,6 +1,6 @@
 // Backtest of the Stellar recommendation engine on Horizon price history.
 //
-//   npm run backtest            (or: npx tsx scripts/backtest.ts [days] [out.json])
+//   npm run backtest -- [days] [--variants] [--out=file.json]
 //
 // Every 7 days in the past, the engine ranks the universe using only the 31
 // days of data available on that date, picks 3 tokens per risk profile and
@@ -8,24 +8,48 @@
 //   - XLM: put the same money in XLM for the same period
 //   - Random: 3 tokens drawn at random from the same universe on that date
 // All strategies pay the same 2% entry commission plus a spread estimate.
+//
+// --variants compares scoring settings without peeking: the best setting is
+// chosen on the first half of history (trades that END before the cutoff) and
+// then judged only on the second half.
 
 import { writeFileSync } from "node:fs";
 import { loadHistory, metricsAt, type TokenSeries } from "@/lib/recommendations/market";
-import { duplicatesAPick, exitLevels, rankTokens, type ScoredToken } from "@/lib/recommendations/stellar";
+import {
+  DEFAULT_SCORING,
+  duplicatesAPick,
+  exitLevels,
+  rankTokens,
+  type ScoredToken,
+  type ScoringOptions
+} from "@/lib/recommendations/stellar";
 import { COMMISSION_BPS } from "@/lib/commission";
 import { holdingDays } from "@/lib/recommendations/scoring";
 import { riskProfiles, type HoldingPeriod, type RecommendationRequest, type RiskProfile } from "@/lib/types";
 
-const HISTORY_DAYS = Number(process.argv[2] || 420);
-const OUT_FILE = process.argv[3];
+const args = process.argv.slice(2);
+const HISTORY_DAYS = Number(args.find((arg) => /^\d+$/.test(arg)) || 420);
+const OUT_FILE = args.find((arg) => arg.startsWith("--out="))?.slice("--out=".length);
+const VARIANTS_MODE = args.includes("--variants");
 const STEP_DAYS = 7;
 const COMMISSION = COMMISSION_BPS / 10_000;
 const RANDOM_SAMPLES = 300;
 // 365-day horizons need more history than Horizon gives us cheaply; skip them.
 const HORIZONS: HoldingPeriod[] = ["3 days", "1 week", "1 month", "3 months", "6 months"];
 
+const VARIANTS: Record<string, ScoringOptions> = {
+  "current (momentum + trend)": DEFAULT_SCORING,
+  "no price signals": { momentum: 0, trend: 0, lowVolatilityTilt: 0 },
+  "trend only": { momentum: 0, trend: 1, lowVolatilityTilt: 0 },
+  "fade 7d (reversal)": { momentum: -1, trend: 1, lowVolatilityTilt: 0 },
+  "fade 7d + 30d": { momentum: -1, trend: -1, lowVolatilityTilt: 0 },
+  "low volatility": { momentum: 0, trend: 0, lowVolatilityTilt: 1 },
+  "fade 7d + low vol": { momentum: -1, trend: 0, lowVolatilityTilt: 1 }
+};
+
 interface Trade {
   date: string;
+  endIndex: number;
   picks: string[];
   engine: number; // with take-profit / stop-loss exits
   engineHold: number; // same picks, held to the horizon
@@ -36,17 +60,96 @@ interface Trade {
   worstPick: number;
 }
 
+type History = Awaited<ReturnType<typeof loadHistory>>;
+type Results = Record<string, Record<string, Trade[]>>;
+
 void main();
 
 async function main() {
   const history = await loadHistory(HISTORY_DAYS);
-  const { dates, xlmUsd, tokens } = history;
+  const { dates, tokens } = history;
   const lastIndex = dates.length - 1;
   console.log(`Universe: ${tokens.length} tokens (${tokens.map((t) => t.item.code || "XLM").join(", ")})`);
   console.log(`History: ${dates[0]} -> ${dates[lastIndex]}\n`);
 
+  if (VARIANTS_MODE) {
+    compareVariants(history);
+    return;
+  }
+
+  const results = simulate(history, DEFAULT_SCORING);
+  for (const holdingPeriod of HORIZONS) {
+    const rows = riskProfiles.map((profile) => summarize(profile, results[holdingPeriod][profile]));
+    console.log(`=== Holding period: ${holdingPeriod} (${rows[0].n} entry dates) ===`);
+    console.table(rows);
+  }
+
+  console.log("=== All profiles and horizons ===");
+  console.table([summarize("ALL", allTrades(results))]);
+
+  console.log("=== Does the risk profile change the risk you actually get? (1 month) ===");
+  console.table(
+    riskProfiles.map((profile) => {
+      const trades = results["1 month"][profile];
+      return {
+        profile,
+        "realized vol": pct(mean(trades.map((trade) => trade.realizedVol))),
+        "worst pick": pct(Math.min(...trades.map((trade) => trade.worstPick))),
+        "most picked": topPicks(trades)
+      };
+    })
+  );
+
+  if (OUT_FILE) {
+    writeFileSync(OUT_FILE, JSON.stringify({ dates: [dates[0], dates[lastIndex]], results }, null, 2));
+    console.log(`Raw results written to ${OUT_FILE}`);
+  }
+}
+
+function compareVariants(history: History) {
+  const lastIndex = history.dates.length - 1;
+  const cutoff = Math.floor((30 + lastIndex) / 2);
+  console.log(`Calibration: trades ending before ${history.dates[cutoff]} · Validation: trades starting on/after it\n`);
+
+  const rows = Object.entries(VARIANTS).map(([name, options]) => {
+    const trades = allTrades(simulate(history, options));
+    const calibration = trades.filter((trade) => trade.endIndex < cutoff);
+    const validation = trades.filter((trade) => history.dates.indexOf(trade.date) >= cutoff);
+    return { name, calibration, validation };
+  });
+
+  console.table(
+    rows.map(({ name, calibration, validation }) => ({
+      variant: name,
+      "calib n": calibration.length,
+      "calib pctile": pct(mean(calibration.map((trade) => trade.percentile))),
+      "calib return": pct(mean(calibration.map((trade) => trade.engine))),
+      "valid n": validation.length,
+      "valid pctile": pct(mean(validation.map((trade) => trade.percentile))),
+      "valid return": pct(mean(validation.map((trade) => trade.engine))),
+      "valid XLM": pct(mean(validation.map((trade) => trade.xlm))),
+      "valid beats XLM": pct(share(validation, (trade) => trade.engine > trade.xlm))
+    }))
+  );
+
+  const chosen = rows.reduce((best, row) =>
+    mean(row.calibration.map((trade) => trade.percentile)) > mean(best.calibration.map((trade) => trade.percentile))
+      ? row
+      : best
+  );
+  const baseline = rows[0];
+  console.log(`Chosen on calibration data: "${chosen.name}"`);
+  console.log(
+    `Validation selection percentile: ${pct(mean(chosen.validation.map((t) => t.percentile)))} ` +
+      `(current engine: ${pct(mean(baseline.validation.map((t) => t.percentile)))}, random = +50.0%)`
+  );
+}
+
+function simulate(history: History, options: ScoringOptions): Results {
+  const { dates, xlmUsd, tokens } = history;
+  const lastIndex = dates.length - 1;
   const rng = mulberry32(42);
-  const results: Record<string, Record<string, Trade[]>> = {};
+  const results: Results = {};
 
   for (const holdingPeriod of HORIZONS) {
     const hold = holdingDays[holdingPeriod];
@@ -63,7 +166,7 @@ async function main() {
           .filter((entry) => entry.metrics && entry.series.closes[t + hold]);
         if (available.length < 4) continue;
 
-        const ranked = rankTokens(available.map((entry) => entry.metrics!), request);
+        const ranked = rankTokens(available.map((entry) => entry.metrics!), request, options);
         const picks: ScoredToken[] = [];
         for (const candidate of ranked) {
           if (picks.length === 3) break;
@@ -89,6 +192,7 @@ async function main() {
 
         trades.push({
           date: dates[t],
+          endIndex: t + hold,
           picks: picks.map((pick) => pick.token.code),
           engine: mean(engineReturns),
           engineHold,
@@ -104,33 +208,11 @@ async function main() {
     }
   }
 
-  for (const holdingPeriod of HORIZONS) {
-    const rows = riskProfiles.map((profile) => summarize(profile, results[holdingPeriod][profile]));
-    console.log(`=== Holding period: ${holdingPeriod} (${rows[0].n} entry dates) ===`);
-    console.table(rows);
-  }
+  return results;
+}
 
-  const allTrades = HORIZONS.flatMap((h) => riskProfiles.flatMap((p) => results[h][p]));
-  console.log("=== All profiles and horizons ===");
-  console.table([summarize("ALL", allTrades)]);
-
-  console.log("=== Does the risk profile change the risk you actually get? (1 month) ===");
-  console.table(
-    riskProfiles.map((profile) => {
-      const trades = results["1 month"][profile];
-      return {
-        profile,
-        "realized vol": pct(mean(trades.map((trade) => trade.realizedVol))),
-        "worst pick": pct(Math.min(...trades.map((trade) => trade.worstPick))),
-        "most picked": topPicks(trades)
-      };
-    })
-  );
-
-  if (OUT_FILE) {
-    writeFileSync(OUT_FILE, JSON.stringify({ dates: [dates[0], dates[lastIndex]], results }, null, 2));
-    console.log(`Raw results written to ${OUT_FILE}`);
-  }
+function allTrades(results: Results) {
+  return HORIZONS.flatMap((h) => riskProfiles.flatMap((p) => results[h][p]));
 }
 
 function summarize(profile: RiskProfile | "ALL", trades: Trade[]) {

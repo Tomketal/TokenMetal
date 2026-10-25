@@ -16,6 +16,17 @@ const DATA_SOURCE = "Stellar Expert + Horizon (mainnet)";
 const MAX_CORRELATION = 0.95; // don't hand out XLM and yXLM as two "different" picks
 const FALLBACK_QUOTE_USDC = 10;
 
+// How price signals feed the ranking. +1 follows the signal, -1 fades it
+// (mean reversion), 0 ignores it. lowVolatilityTilt favors calmer tokens among
+// those that fit the risk profile. The backtest compares these settings.
+export interface ScoringOptions {
+  momentum: number; // 7-day risk-adjusted return
+  trend: number; // 30-day risk-adjusted return
+  lowVolatilityTilt: number;
+}
+
+export const DEFAULT_SCORING: ScoringOptions = { momentum: 1, trend: 1, lowVolatilityTilt: 0 };
+
 export interface ScoredToken {
   token: TokenMetrics;
   riskScore: number;
@@ -46,8 +57,8 @@ export async function getStellarRecommendations(request: RecommendationRequest):
 }
 
 // Pure scoring shared by the live engine and the backtest.
-export function rankTokens(tokens: TokenMetrics[], request: RecommendationRequest) {
-  return tokens.map((token) => scoreToken(token, request)).sort((a, b) => b.rankScore - a.rankScore);
+export function rankTokens(tokens: TokenMetrics[], request: RecommendationRequest, options = DEFAULT_SCORING) {
+  return tokens.map((token) => scoreToken(token, request, options)).sort((a, b) => b.rankScore - a.rankScore);
 }
 
 export function duplicatesAPick(picks: ScoredToken[], candidate: ScoredToken) {
@@ -70,7 +81,7 @@ export function exitLevels(token: TokenMetrics, request: RecommendationRequest) 
   return { takeProfit, stopLoss };
 }
 
-function scoreToken(token: TokenMetrics, request: RecommendationRequest): ScoredToken {
+function scoreToken(token: TokenMetrics, request: RecommendationRequest, options: ScoringOptions): ScoredToken {
   const targetRisk = riskTargets[request.riskProfile];
   const volumeWeight = holdingVolumeWeight[request.holdingPeriod];
   const maturityWeight = holdingMaturityWeight[request.holdingPeriod];
@@ -87,8 +98,8 @@ function scoreToken(token: TokenMetrics, request: RecommendationRequest): Scored
   );
 
   // Risk-adjusted momentum (7d) and trend (30d), centered at 50.
-  const momentum = boundedScore(50 + 25 * sharpe(token.return7d, token.volatility, 7));
-  const trend = boundedScore(50 + 25 * sharpe(token.return30d, token.volatility, 30));
+  const momentum = boundedScore(50 + 25 * options.momentum * sharpe(token.return7d, token.volatility, 7));
+  const trend = boundedScore(50 + 25 * options.trend * sharpe(token.return30d, token.volatility, 30));
   const activity = boundedScore(Math.log10(token.volume7dUsd + 1) * 14 - 20);
   const maturity = boundedScore(token.rating.average * 7 + Math.log10(token.holders + 1) * 4);
 
@@ -102,7 +113,7 @@ function scoreToken(token: TokenMetrics, request: RecommendationRequest): Scored
     token,
     riskScore,
     confidenceScore: boundedScore(riskFit * 0.5 + horizonFit * 0.3 + dataQuality * 0.2),
-    rankScore: riskFit * 1.6 + horizonFit
+    rankScore: riskFit * 1.6 + horizonFit + options.lowVolatilityTilt * (100 - volatilityRisk) * 0.5
   };
 }
 
