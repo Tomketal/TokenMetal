@@ -316,8 +316,8 @@
 [data-skin="glass"] .risk-dot {
   border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 999px;
-  min-height: 54px;
-  min-width: 54px;
+  min-height: 52px;
+  padding: 8px 18px;
   color: #1a1d20;
   background:
     radial-gradient(ellipse 65% 50% at 50% 15%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.3) 48%, transparent 72%),
