@@ -1,7 +1,14 @@
 "use client";
 
 import "./invest.css";
+import "./skins/switcher.css";
+import "./skins/glass.css";
+import "./skins/plush.css";
+import "./skins/grid.css";
+import dynamic from "next/dynamic";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+
+const PlushBackground = dynamic(() => import("./components/PlushBackground"), { ssr: false });
 import { Connection, PublicKey, SystemProgram, Transaction, VersionedTransaction } from "@solana/web3.js";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSignAndSendTransaction as usePrivySignAndSendTransaction, useWallets as usePrivySolanaWallets, type ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
@@ -11,6 +18,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { pct, usd } from "@/lib/number";
 import { holdingPeriods, type HoldingPeriod, type Position, type PreparedTrade, type RiskProfile, type TokenRecommendation } from "@/lib/types";
 import { PrivyLoginButton } from "../components/PrivyLoginButton";
+import { SkinSwitcher, SKINS, useSkin } from "../components/SkinSwitcher";
+import OnboardingQuest from "../components/OnboardingQuest";
 
 const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "mainnet-beta";
 const dryRun = process.env.NEXT_PUBLIC_DRY_RUN === "true";
@@ -38,6 +47,10 @@ function resolvePrivySolanaChain(value: string): "solana:mainnet" | "solana:devn
 }
 
 export default function Home() {
+  const [skin, setSkin] = useSkin();
+  const skinEdition = SKINS.find((s) => s.id === skin)?.edition || "METAL-01";
+  const [showQuest, setShowQuest] = useState(false);
+  const [questCharacter, setQuestCharacter] = useState<string | null>(null);
   const { connection } = useConnection();
   const { publicKey, sendTransaction, signTransaction, signMessage } = useWallet();
   const { ready: privyReady, authenticated: privyAuthenticated, user: privyUser } = usePrivy();
@@ -161,6 +174,15 @@ export default function Home() {
     commitPositions((previous) => mergePositionBuckets(apiPositions, previous));
     setPositionsLastUpdated(new Date());
   }, [owner, commitPositions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.localStorage.getItem("tm:questDone")) {
+      setShowQuest(true);
+    }
+    const character = window.localStorage.getItem("tm:questCharacter");
+    if (character) setQuestCharacter(character);
+  }, []);
 
   useEffect(() => {
     if (!owner || !positionsStorageKey) {
@@ -822,12 +844,30 @@ export default function Home() {
   }
 
   return (
+    <>
+    {skin === "plush" ? <PlushBackground /> : null}
+    <OnboardingQuest
+      open={showQuest}
+      lang="en"
+      skin={skin}
+      onComplete={(r) => {
+        setShowQuest(false);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("tm:questDone", "1");
+          if (r) window.localStorage.setItem("tm:questCharacter", r.key);
+        }
+        if (r) {
+          setRiskProfile(r.risk);
+          setQuestCharacter(r.key);
+        }
+      }}
+    />
     <main className="shell">
       <section className="device">
         <div className="chassis-frame">
           <header className="device-head header-shell panel-shell">
             <div className="brand">
-              <span className="brand-kicker">METAL-01</span>
+              <span className="brand-kicker">{skinEdition}</span>
               <div className="brand-logo-wrap">
                 <Image
                   className="brand-logo"
@@ -837,10 +877,12 @@ export default function Home() {
                   height={288}
                   priority
                 />
+                <span className="brand-logo-skin" aria-hidden="true" />
               </div>
               <span>The beginner-friendly Stellar investment app | Powered by La Familia</span>
             </div>
             <div className="wallet-dock">
+              <SkinSwitcher skin={skin} onChange={setSkin} />
               <PrivyLoginButton />
             </div>
           </header>
@@ -874,7 +916,7 @@ export default function Home() {
 
               <div className="control-module">
                 <div className="mini-screen">
-                  <span>Risk profile</span>
+                  <span>Risk profile{questCharacter ? ` · ${questCharacter}` : ""}</span>
                   <strong>{riskProfile}</strong>
                 </div>
                 <div className="risk-slider">
@@ -890,6 +932,13 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  className="quest-replay"
+                  onClick={() => setShowQuest(true)}
+                >
+                  {questCharacter ? "Replay the onboarding quest" : "Take the onboarding quest"}
+                </button>
               </div>
 
               <div className="dial-row">
@@ -1215,6 +1264,7 @@ export default function Home() {
         </section>
       ) : null}
     </main>
+    </>
   );
 }
 
