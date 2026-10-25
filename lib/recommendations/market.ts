@@ -44,6 +44,7 @@ export interface TokenMetrics {
   return30d: number;
   volatility: number; // annualized, fraction
   maxDrawdown: number; // fraction over the window
+  smartFlow?: number; // [-1, 1] net buying by historically profitable wallets
 }
 
 export interface ExpertAsset {

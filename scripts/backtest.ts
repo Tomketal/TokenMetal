@@ -18,6 +18,7 @@
 
 import { writeFileSync } from "node:fs";
 import { loadHubbleHistory } from "@/lib/recommendations/hubble";
+import { loadSmartMoney, smartFlowAt } from "@/lib/recommendations/smartMoney";
 import { loadHistory, metricsAt, type TokenMetrics, type TokenSeries } from "@/lib/recommendations/market";
 import {
   DEFAULT_SCORING,
@@ -36,6 +37,8 @@ const HISTORY_DAYS = Number(args.find((arg) => /^\d+$/.test(arg)) || 420);
 const OUT_FILE = args.find((arg) => arg.startsWith("--out="))?.slice("--out=".length);
 const VARIANTS_MODE = args.includes("--variants");
 const HUBBLE_MODE = args.includes("--hubble");
+const FROM_DAY = args.find((arg) => arg.startsWith("--from="))?.slice("--from=".length);
+const SMART_MONEY = HUBBLE_MODE ? loadSmartMoney() : null;
 // Point-in-time universe rules for the Hubble history.
 const MIN_VOLUME_7D_USD = 10_000;
 const MIN_DERIVED_RATING = 5;
@@ -59,7 +62,12 @@ const VARIANTS: Record<string, ScoringOptions> = {
   "fade 7d + low vol": { momentum: -1, trend: 0, lowVolatilityTilt: 1 },
   "quality tilt": { momentum: 1, trend: 1, lowVolatilityTilt: 0, qualityTilt: 1 },
   "strong quality tilt": { momentum: 1, trend: 1, lowVolatilityTilt: 0, qualityTilt: 2 },
-  "quality, no price signals": { momentum: 0, trend: 0, lowVolatilityTilt: 0, qualityTilt: 2 }
+  "quality, no price signals": { momentum: 0, trend: 0, lowVolatilityTilt: 0, qualityTilt: 2 },
+  "smart money": { momentum: 1, trend: 1, lowVolatilityTilt: 0, smartMoney: 1 },
+  "strong smart money": { momentum: 1, trend: 1, lowVolatilityTilt: 0, smartMoney: 3 },
+  "smart money only": { momentum: 0, trend: 0, lowVolatilityTilt: 0, smartMoney: 3 },
+  "smart money + quality": { momentum: 0, trend: 0, lowVolatilityTilt: 0, smartMoney: 2, qualityTilt: 2 },
+  "fade smart money (sanity)": { momentum: 1, trend: 1, lowVolatilityTilt: 0, smartMoney: -3 }
 };
 
 interface Trade {
@@ -125,7 +133,8 @@ async function main() {
 
 function compareVariants(history: History) {
   const lastIndex = history.dates.length - 1;
-  const cutoff = Math.floor((30 + lastIndex) / 2);
+  const firstEntry = Math.max(30, FROM_DAY ? history.dates.indexOf(FROM_DAY) : 30);
+  const cutoff = Math.floor((firstEntry + lastIndex) / 2);
   console.log(`Calibration: trades ending before ${history.dates[cutoff]} · Validation: trades starting on/after it\n`);
 
   const rows = Object.entries(VARIANTS).map(([name, options]) => {
@@ -188,6 +197,17 @@ function simulate(history: History, options: ScoringOptions): Results {
         tokens
           .map((series) => ({ series, metrics: metricsAt(series, t) }))
           .filter((entry): entry is Entry => entry.metrics !== null && passesUniverseRules(entry.metrics))
+          .map((entry) =>
+            SMART_MONEY
+              ? {
+                  ...entry,
+                  metrics: {
+                    ...entry.metrics,
+                    smartFlow: smartFlowAt(SMART_MONEY, entry.series.assetId, dates[t], entry.metrics.volume7dUsd)
+                  }
+                }
+              : entry
+          )
       );
     }
     return eligibleAt.get(t)!;
@@ -201,7 +221,8 @@ function simulate(history: History, options: ScoringOptions): Results {
       const trades: Trade[] = [];
       const request: RecommendationRequest = { usdcBalance: 200, riskProfile, allocationPercentage: 25, holdingPeriod };
 
-      for (let t = 30; t + hold <= lastIndex; t += STEP_DAYS) {
+      const firstEntry = Math.max(30, FROM_DAY ? dates.indexOf(FROM_DAY) : 30);
+      for (let t = firstEntry; t + hold <= lastIndex; t += STEP_DAYS) {
         // Only tokens the engine could have seen on day t and that still trade at t + hold.
         const available = eligible(t).filter((entry) => entry.series.closes[t + hold]);
         if (available.length < 4) continue;

@@ -24,6 +24,7 @@ export interface ScoringOptions {
   trend: number; // 30-day risk-adjusted return
   lowVolatilityTilt: number;
   qualityTilt?: number; // favors liquid, long-lived tokens (Stellar Expert-style rating)
+  smartMoney?: number; // follows net buying by wallets with the best trailing returns
 }
 
 export const DEFAULT_SCORING: ScoringOptions = { momentum: 1, trend: 1, lowVolatilityTilt: 0 };
@@ -118,7 +119,8 @@ function scoreToken(token: TokenMetrics, request: RecommendationRequest, options
       riskFit * 1.6 +
       horizonFit +
       options.lowVolatilityTilt * (100 - volatilityRisk) * 0.5 +
-      (options.qualityTilt ?? 0) * token.rating.average * 5
+      (options.qualityTilt ?? 0) * token.rating.average * 5 +
+      (options.smartMoney ?? 0) * (token.smartFlow ?? 0) * 25
   };
 }
 

@@ -17,6 +17,11 @@ Token Letal (Token Metal) is a full-stack Stellar dApp for simple investing. It 
   - `POST /api/positions/close`
 - `/dev` is a bare protocol test bench; the product UI is owned by the UX branch.
 - `scripts/testnet-e2e.mjs` runs the full buy/close flow on testnet against a local server.
+- Research data (not used by the live app): `scripts/hubble-export.ts` pulls multi-year prices and
+  wallet flows from SDF's Hubble BigQuery dataset into `data/hubble/` (git-ignored; BigQuery project
+  `tokenmetal-stellar`); `scripts/hubble-smart-money.ts` builds the weekly smart-money signal;
+  `npm run backtest -- --hubble --variants --from=2022-03-01` validates scoring changes out-of-sample.
+  Only adopt a scoring change if it wins on the calibration half AND holds on the validation half.
 
 ## Constraints
 
