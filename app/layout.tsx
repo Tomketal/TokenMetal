@@ -1,6 +1,19 @@
 import type { Metadata } from "next";
+import { Nunito, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import { WalletProviders } from "./providers";
+
+const nunito = Nunito({
+  subsets: ["latin"],
+  weight: ["600", "800", "900"],
+  variable: "--font-nunito"
+});
+
+const pixel = Press_Start_2P({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-pixel"
+});
 
 export const metadata: Metadata = {
   title: "Token Metal | Guided Stellar Investing",
@@ -14,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${nunito.variable} ${pixel.variable}`}>
       <body>
         <WalletProviders>{children}</WalletProviders>
       </body>
