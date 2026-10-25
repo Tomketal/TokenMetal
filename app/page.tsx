@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-const launchUrl = "https://token-letal.vercel.app/";
+const launchUrl = "/invest";
 const tokenMetalXUrl = "https://x.com/TokenMetalapp";
 const founderXUrl = "https://x.com/tomketal";
 
@@ -49,7 +49,7 @@ const trustSignals = [
 
 function LaunchButton({ variant = "primary" }: { variant?: "primary" | "secondary" }) {
   return (
-    <a className={`launch-button ${variant}`} href={launchUrl} target="_blank" rel="noreferrer">
+    <a className={`launch-button ${variant}`} href={launchUrl}>
       Launch the app
     </a>
   );
