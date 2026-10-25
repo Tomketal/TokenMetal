@@ -16,3 +16,4 @@ pnpm-debug.log*
 yarn-debug.log*
 .vercel
 data/hubble/
+certificates/
