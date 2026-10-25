@@ -1,87 +1,84 @@
 "use client";
 
-import { PrivyProvider } from "@privy-io/react-auth";
-import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
-import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
-import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
-import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
-import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
-import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { useMemo } from "react";
-import { DEFAULT_SOLANA_RPC_URL } from "@/lib/config";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { networkPassphrase, stellarNetwork } from "@/lib/stellar/network";
 
-const rpcEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || DEFAULT_SOLANA_RPC_URL;
-const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "mainnet-beta";
-const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
-const privyClientId = process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID;
-const privyWalletList = [
-  "solflare",
-  "phantom",
-  "backpack",
-  "detected_solana_wallets",
-  "wallet_connect_qr_solana"
-] as const;
-const privySolanaConnectors = toSolanaWalletConnectors({
-  shouldAutoConnect: false
-});
+interface StellarWalletContextValue {
+  address: string | null;
+  network: typeof stellarNetwork;
+  connecting: boolean;
+  connect: () => Promise<string | null>;
+  disconnect: () => Promise<void>;
+  signTransaction: (xdr: string) => Promise<string>;
+}
 
-function resolveWalletNetwork(input: string): WalletAdapterNetwork {
-  if (input === "devnet") return WalletAdapterNetwork.Devnet;
-  if (input === "testnet") return WalletAdapterNetwork.Testnet;
-  return WalletAdapterNetwork.Mainnet;
+const StellarWalletContext = createContext<StellarWalletContextValue | null>(null);
+
+// The kit touches `window` and registers web components, so it is loaded
+// lazily in the browser instead of at module scope (which also runs on SSR).
+let kitPromise: Promise<typeof import("@creit.tech/stellar-wallets-kit/sdk").StellarWalletsKit> | null = null;
+
+function loadKit() {
+  kitPromise ??= (async () => {
+    const [{ StellarWalletsKit }, { defaultModules }, { Networks }] = await Promise.all([
+      import("@creit.tech/stellar-wallets-kit/sdk"),
+      import("@creit.tech/stellar-wallets-kit/modules/utils"),
+      import("@creit.tech/stellar-wallets-kit/types")
+    ]);
+    StellarWalletsKit.init({
+      modules: defaultModules(),
+      network: stellarNetwork === "testnet" ? Networks.TESTNET : Networks.PUBLIC
+    });
+    return StellarWalletsKit;
+  })();
+  return kitPromise;
 }
 
 export function WalletProviders({ children }: { children: React.ReactNode }) {
-  const wallets = useMemo(() => {
-    const network = resolveWalletNetwork(cluster);
-    return [new PhantomWalletAdapter(), new SolflareWalletAdapter({ network })];
+  const [address, setAddress] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
+  const connect = useCallback(async () => {
+    setConnecting(true);
+    try {
+      const kit = await loadKit();
+      const { address: connected } = await kit.authModal();
+      setAddress(connected);
+      return connected;
+    } catch (error) {
+      console.error("Wallet connection failed:", error);
+      return null;
+    } finally {
+      setConnecting(false);
+    }
   }, []);
 
-  const walletTree = (
-    <ConnectionProvider endpoint={rpcEndpoint}>
-      <WalletProvider wallets={wallets} autoConnect={false} onError={(error) => console.error("Wallet adapter error:", error)}>
-        <WalletModalProvider>{children}</WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
+  const disconnect = useCallback(async () => {
+    const kit = await loadKit();
+    await kit.disconnect();
+    setAddress(null);
+  }, []);
+
+  const signTransaction = useCallback(
+    async (xdr: string) => {
+      if (!address) throw new Error("Connect a Stellar wallet first.");
+      const kit = await loadKit();
+      const { signedTxXdr } = await kit.signTransaction(xdr, { networkPassphrase, address });
+      return signedTxXdr;
+    },
+    [address]
   );
 
-  if (!privyAppId) {
-    return walletTree;
-  }
-
-  const privyProviderProps = privyClientId
-    ? { appId: privyAppId, clientId: privyClientId }
-    : { appId: privyAppId };
-
-  return (
-    <PrivyProvider
-      {...privyProviderProps}
-      config={{
-        loginMethodsAndOrder: {
-          primary: ["google", "twitter", "email", "solflare"],
-          overflow: ["phantom", "backpack", "detected_solana_wallets", "wallet_connect_qr_solana"]
-        },
-        appearance: {
-          walletChainType: "solana-only",
-          showWalletLoginFirst: false,
-          walletList: [...privyWalletList]
-        },
-        externalWallets: {
-          solana: {
-            connectors: privySolanaConnectors
-          }
-        },
-        embeddedWallets: {
-          ethereum: {
-            createOnLogin: "off"
-          },
-          solana: {
-            createOnLogin: "off"
-          }
-        }
-      }}
-    >
-      {walletTree}
-    </PrivyProvider>
+  const value = useMemo(
+    () => ({ address, network: stellarNetwork, connecting, connect, disconnect, signTransaction }),
+    [address, connecting, connect, disconnect, signTransaction]
   );
+
+  return <StellarWalletContext.Provider value={value}>{children}</StellarWalletContext.Provider>;
+}
+
+export function useStellarWallet() {
+  const context = useContext(StellarWalletContext);
+  if (!context) throw new Error("useStellarWallet must be used inside WalletProviders.");
+  return context;
 }

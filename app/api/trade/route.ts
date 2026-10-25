@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { appConfig, shouldUseSandboxTrading } from "@/lib/config";
+import { toRawAmount } from "@/lib/number";
 import { createPosition } from "@/lib/positions/store";
-import { prepareBuyTrade } from "@/lib/trading/jupiter";
+import { prepareBuyTrade, readSwapResult } from "@/lib/trading/sdex";
+import { STELLAR_DECIMALS } from "@/lib/stellar/network";
 import type { PreparedTrade } from "@/lib/types";
 import { tradeRequestSchema } from "@/lib/validation";
 
@@ -26,17 +28,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ preparedTrade });
     }
 
-    const preparedTrade = body.preparedTrade as PreparedTrade;
-    if (!sandboxTrading && preparedTrade.amountUsdc < appConfig.minLiveTradeUsdc) {
-      return NextResponse.json(
-        {
-          error: `This prepared trade is below the ${appConfig.minLiveTradeUsdc} USDC live minimum. Recreate it with a larger allocation.`
-        },
-        { status: 400 }
-      );
+    let preparedTrade = body.preparedTrade as PreparedTrade;
+    if (preparedTrade.owner !== body.owner) {
+      return NextResponse.json({ error: "Prepared trade belongs to a different wallet." }, { status: 400 });
     }
 
-    const position = await createPosition(preparedTrade, sandboxTrading ? `dry-run-${crypto.randomUUID()}` : body.signature);
+    if (sandboxTrading) {
+      const position = await createPosition(preparedTrade, `dry-run-${crypto.randomUUID()}`);
+      return NextResponse.json({ position });
+    }
+
+    // Record what the chain says the swap delivered, not the pre-trade quote.
+    const result = await readSwapResult(body.signature, body.owner);
+    preparedTrade = {
+      ...preparedTrade,
+      expectedTokenAmountUi: result.destAmount,
+      expectedTokenAmountRaw: toRawAmount(result.destAmount, STELLAR_DECIMALS)
+    };
+
+    const position = await createPosition(preparedTrade, body.signature);
     return NextResponse.json({ position });
   } catch (error) {
     return NextResponse.json(

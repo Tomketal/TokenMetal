@@ -1,77 +1,54 @@
 import { NextResponse } from "next/server";
-import { Connection } from "@solana/web3.js";
+import { TransactionBuilder } from "@stellar/stellar-sdk";
 import { appConfig, shouldUseSandboxTrading } from "@/lib/config";
+import { horizon } from "@/lib/stellar/horizon";
+import { broadcastRequestSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
+// Result codes that mean "build the transaction again and re-sign":
+// it expired (time bounds) or another transaction used the sequence number.
+const STALE_TX_CODES = new Set(["tx_too_late", "tx_bad_seq"]);
+
+const OPERATION_MESSAGES: Record<string, string> = {
+  op_under_dest_min: "Price moved more than the allowed slippage. Prepare the trade again.",
+  op_too_few_offers: "Not enough liquidity on the Stellar DEX for this trade right now.",
+  op_underfunded: "Not enough balance to complete this trade.",
+  op_low_reserve: "Not enough XLM to cover the account reserve for a new token.",
+  op_no_trust: "A required trustline is missing (yours or the treasury's).",
+  op_line_full: "Your trustline limit for this token is full."
+};
+
 export async function POST(request: Request) {
+  if (shouldUseSandboxTrading()) {
+    return NextResponse.json({ error: "Sandbox mode is active; nothing is broadcast." }, { status: 400 });
+  }
+
   try {
-    if (shouldUseSandboxTrading()) {
+    const { signedTransaction } = broadcastRequestSchema.parse(await request.json());
+    const transaction = TransactionBuilder.fromXDR(signedTransaction, appConfig.networkPassphrase);
+    const response = await horizon().submitTransaction(transaction);
+    return NextResponse.json({ signature: response.hash, ledger: response.ledger });
+  } catch (error) {
+    const codes = resultCodes(error);
+    if (codes && STALE_TX_CODES.has(codes.transaction)) {
       return NextResponse.json(
-        {
-          error:
-            "Sandbox mode is active because live mainnet trading is not configured. Add SOLANA_RPC_URL for live broadcasts, or reload the app to use sandbox trading."
-        },
-        { status: 400 }
+        { error: "The transaction expired before it was sent. Prepare it again and re-sign.", code: "expired" },
+        { status: 409 }
       );
     }
 
-    const body = (await request.json()) as { signedTransaction?: string };
-    if (!body.signedTransaction) {
-      return NextResponse.json({ error: "signedTransaction is required." }, { status: 400 });
-    }
+    const operationCode = codes?.operations?.find((code) => code !== "op_success");
+    const message =
+      (operationCode && OPERATION_MESSAGES[operationCode]) ||
+      (codes ? `Transaction rejected: ${codes.transaction}${operationCode ? ` / ${operationCode}` : ""}` : null) ||
+      (error instanceof Error ? error.message : "Unable to broadcast transaction.");
 
-    const bytes = Buffer.from(body.signedTransaction, "base64");
-    const connection = new Connection(appConfig.solanaRpcUrl, "confirmed");
-
-    const signature = await connection.sendRawTransaction(bytes, {
-      skipPreflight: true,
-      maxRetries: 3
-    });
-
-    await waitForSignatureConfirmationHttp(connection, signature);
-    return NextResponse.json({ signature });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "Unable to broadcast transaction.";
-    return NextResponse.json(
-      {
-        error: detail.includes("Access forbidden") || detail.includes("403")
-          ? `${detail} Configure SOLANA_RPC_URL with a write-enabled mainnet RPC for server-side broadcast.`
-          : detail
-      },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: message, code: operationCode || codes?.transaction }, { status: 400 });
   }
 }
 
-async function waitForSignatureConfirmationHttp(
-  connection: Connection,
-  signature: string,
-  timeoutMs = 75_000,
-  pollIntervalMs = 1_500
-) {
-  const start = Date.now();
-
-  while (Date.now() - start < timeoutMs) {
-    const statusResponse = await connection.getSignatureStatuses([signature], {
-      searchTransactionHistory: true
-    });
-    const status = statusResponse.value[0];
-
-    if (status?.err) {
-      throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
-    }
-
-    if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
-      return;
-    }
-
-    await sleep(pollIntervalMs);
-  }
-
-  throw new Error(`Transaction confirmation timed out for ${signature}`);
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function resultCodes(error: unknown) {
+  const extras = (error as { response?: { data?: { extras?: { result_codes?: unknown } } } })?.response?.data?.extras;
+  return extras?.result_codes as { transaction: string; operations?: string[] } | undefined;
 }

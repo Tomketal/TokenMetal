@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PublicKey } from "@solana/web3.js";
+import { isValidStellarAddress } from "@/lib/stellar/assets";
 import { listPositions } from "@/lib/positions/store";
 import {
   listTransactions,
@@ -15,18 +15,14 @@ function parseOwner(request: Request) {
   const owner = searchParams.get("owner")?.trim();
   if (!owner) return null;
 
-  try {
-    return new PublicKey(owner).toBase58();
-  } catch {
-    return null;
-  }
+  return isValidStellarAddress(owner) ? owner : null;
 }
 
 export async function GET(request: Request) {
   const owner = parseOwner(request);
   if (!owner) {
     return NextResponse.json(
-      { error: "Query parameter `owner` (valid Solana wallet address) is required." },
+      { error: "Query parameter `owner` (valid Stellar wallet address) is required." },
       { status: 400 }
     );
   }
