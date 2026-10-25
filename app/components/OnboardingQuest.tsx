@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- embedded vanilla-JS quest engine; typed only at the component props
 // @ts-nocheck
 "use client";
 /* Token-Metal Onboarding Quest — React wrapper around the vanilla-JS engine. */

@@ -6,60 +6,36 @@ import "./skins/glass.css";
 import "./skins/plush.css";
 import "./skins/grid.css";
 import dynamic from "next/dynamic";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useStellarWallet } from "@/app/providers";
+import { pct, usd } from "@/lib/number";
+import { suggestedAllocation } from "@/lib/recommendations/scoring";
+import { explorerTxUrl, stellarNetwork } from "@/lib/stellar/network";
+import { holdingPeriods, type HoldingPeriod, type Position, type PreparedTrade, type RiskProfile, type TokenRecommendation } from "@/lib/types";
+import OnboardingQuest from "../components/OnboardingQuest";
+import { SkinSwitcher, SKINS, useSkin } from "../components/SkinSwitcher";
+import { WalletButton } from "../components/WalletButton";
 
 const PlushBackground = dynamic(() => import("./components/PlushBackground"), { ssr: false });
-import { Connection, PublicKey, SystemProgram, Transaction, VersionedTransaction } from "@solana/web3.js";
-import { usePrivy } from "@privy-io/react-auth";
-import { useSignAndSendTransaction as usePrivySignAndSendTransaction, useWallets as usePrivySolanaWallets, type ConnectedStandardSolanaWallet } from "@privy-io/react-auth/solana";
-import Image from "next/image";
-import bs58 from "bs58";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { pct, usd } from "@/lib/number";
-import { holdingPeriods, type HoldingPeriod, type Position, type PreparedTrade, type RiskProfile, type TokenRecommendation } from "@/lib/types";
-import { PrivyLoginButton } from "../components/PrivyLoginButton";
-import { SkinSwitcher, SKINS, useSkin } from "../components/SkinSwitcher";
-import OnboardingQuest from "../components/OnboardingQuest";
 
-const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "mainnet-beta";
 const dryRun = process.env.NEXT_PUBLIC_DRY_RUN === "true";
-const sandboxSigning = process.env.NEXT_PUBLIC_SANDBOX_SIGNING === "true";
-const tradeEngine = process.env.NEXT_PUBLIC_TRADE_ENGINE || "jupiter";
-const capitalSymbol = process.env.NEXT_PUBLIC_CAPITAL_SYMBOL || "USDC";
-const executableSymbol = tradeEngine === "raydium-devnet" ? "TTDG" : "";
+const capitalSymbol = "USDC";
 const positionsStoragePrefix = "token-letal:positions";
 
 type PositionBuckets = { open: Position[]; closed: Position[] };
-type TriggerAuthChallenge =
-  | {
-    type: "message";
-    challenge: string;
-  }
-  | {
-    type: "transaction";
-    transaction: string;
-  };
-
-function resolvePrivySolanaChain(value: string): "solana:mainnet" | "solana:devnet" | "solana:testnet" {
-  if (value === "devnet") return "solana:devnet";
-  if (value === "testnet") return "solana:testnet";
-  return "solana:mainnet";
-}
 
 export default function Home() {
   const [skin, setSkin] = useSkin();
   const skinEdition = SKINS.find((s) => s.id === skin)?.edition || "METAL-01";
   const [showQuest, setShowQuest] = useState(false);
   const [questCharacter, setQuestCharacter] = useState<string | null>(null);
-  const { connection } = useConnection();
-  const { publicKey, sendTransaction, signTransaction, signMessage } = useWallet();
-  const { ready: privyReady, authenticated: privyAuthenticated, user: privyUser } = usePrivy();
-  const { wallets: privySolanaWallets } = usePrivySolanaWallets();
-  const { signAndSendTransaction: privySignAndSendTransaction } = usePrivySignAndSendTransaction();
+  const { address, signTransaction } = useStellarWallet();
   const [riskProfile, setRiskProfile] = useState<RiskProfile>("medium");
-  const [allocationPercentage, setAllocationPercentage] = useState(10);
+  const [allocationPercentage, setAllocationPercentage] = useState(suggestedAllocation.medium);
   const [holdingPeriod, setHoldingPeriod] = useState<HoldingPeriod>("1 week");
   const [usdcBalance, setUsdcBalance] = useState(0);
+  const [minLiveTradeUsdc, setMinLiveTradeUsdc] = useState(1);
   const [recommendations, setRecommendations] = useState<TokenRecommendation[]>([]);
   const [selected, setSelected] = useState<TokenRecommendation | null>(null);
   const [preparedTrade, setPreparedTrade] = useState<PreparedTrade | null>(null);
@@ -67,45 +43,16 @@ export default function Home() {
   const [positionsLastUpdated, setPositionsLastUpdated] = useState<Date | null>(null);
   const [openedPositionNotice, setOpenedPositionNotice] = useState<{ tokenSymbol: string } | null>(null);
   const [inspectedPosition, setInspectedPosition] = useState<Position | null>(null);
-  const [triggerAuthTokens, setTriggerAuthTokens] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");
-  const [armingAll, setArmingAll] = useState(false);
   const [error, setError] = useState("");
 
-  const walletAdapterOwner = publicKey?.toBase58() || "";
-  const privyConnectedSolanaWallet = useMemo<ConnectedStandardSolanaWallet | null>(() => {
-    if (!Array.isArray(privySolanaWallets) || privySolanaWallets.length === 0) return null;
-    return privySolanaWallets[0] || null;
-  }, [privySolanaWallets]);
-  const privyConnectedOwner = privyConnectedSolanaWallet?.address || "";
-  const privyLinkedOwner = useMemo(() => {
-    if (!privyUser) return "";
-    if (privyUser.wallet?.chainType === "solana" && privyUser.wallet.address) {
-      return privyUser.wallet.address;
-    }
-    for (const account of privyUser.linkedAccounts) {
-      if (account.type === "wallet" && account.chainType === "solana") {
-        return account.address;
-      }
-    }
-    return "";
-  }, [privyUser]);
-  const privySessionActive = privyReady && privyAuthenticated;
-  const privySessionOwner = privySessionActive ? (privyConnectedOwner || privyLinkedOwner) : "";
-  const owner = walletAdapterOwner || privySessionOwner;
-  const walletConnected = Boolean(walletAdapterOwner || privySessionOwner);
-  const signedInWithoutWallet = privySessionActive && !walletConnected;
+  const owner = address ?? "";
+  const walletConnected = Boolean(owner);
   const positionsStorageKey = owner ? `${positionsStoragePrefix}:${owner}` : "";
   const holdingIndex = Math.max(0, holdingPeriods.indexOf(holdingPeriod));
-  const capitalPrecision = capitalSymbol === "SOL" ? 4 : 2;
-  const capitalDisplay = walletConnected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Sign in";
-  const investAmount = useMemo(() => {
-    const requested = (usdcBalance * allocationPercentage) / 100;
-    if (capitalSymbol === "SOL") {
-      return Math.max(0, Math.min(requested, usdcBalance - 0.05));
-    }
-    return requested;
-  }, [allocationPercentage, usdcBalance]);
+  const capitalPrecision = 2;
+  const capitalDisplay = walletConnected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Connect wallet";
+  const investAmount = useMemo(() => Math.floor(usdcBalance * allocationPercentage) / 100, [allocationPercentage, usdcBalance]);
   const investDisplay = `${investAmount.toFixed(capitalPrecision)} ${capitalSymbol}`;
   const activePreparedPosition = preparedTrade
     ? positions.open.find((position) => position.tokenSymbol === preparedTrade.recommendation.tokenSymbol)
@@ -114,9 +61,11 @@ export default function Home() {
     () => positions.open.reduce((sum, position) => sum + (position.pnlUsd || 0), 0),
     [positions.open]
   );
+  const belowMinimum = !dryRun && investAmount > 0 && investAmount < minLiveTradeUsdc;
   const canRequestOpportunities = walletConnected && busy !== "recommendations" && investAmount > 0;
-  const needsUsdcFunding = walletConnected && capitalSymbol === "USDC" && investAmount <= 0;
+  const needsUsdcFunding = walletConnected && investAmount <= 0;
   const fundingBlockerMessage = "Insufficient funds. Add USDC to your account to see today's picks.";
+  const minimumMessage = `Purchases need at least ${minLiveTradeUsdc} USDC. Move the capital slider up or add USDC.`;
 
   const persistPositions = useCallback((next: PositionBuckets) => {
     if (!positionsStorageKey) return;
@@ -185,10 +134,18 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/trade/status", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((status: { minLiveTradeUsdc?: number }) => {
+        if (typeof status.minLiveTradeUsdc === "number") setMinLiveTradeUsdc(status.minLiveTradeUsdc);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (!owner || !positionsStorageKey) {
       setPositions(emptyPositionBuckets());
       setPositionsLastUpdated(null);
-      setTriggerAuthTokens({});
       return;
     }
 
@@ -236,6 +193,12 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [inspectedPosition]);
 
+  // Higher risk profiles suggest putting more of the balance to work.
+  function chooseRiskProfile(risk: RiskProfile) {
+    setRiskProfile(risk);
+    setAllocationPercentage(suggestedAllocation[risk]);
+  }
+
   async function requestRecommendations() {
     setError("");
     setPreparedTrade(null);
@@ -265,25 +228,24 @@ export default function Home() {
     }
   }
 
+  async function requestBuyQuote(recommendation: TokenRecommendation, amountUsdc: number) {
+    const response = await fetch("/api/trade", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "prepare", owner, amountUsdc, recommendation })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Trade preparation failed.");
+    return payload.preparedTrade as PreparedTrade;
+  }
+
   async function prepareTrade(recommendation: TokenRecommendation) {
     setError("");
     setPreparedTrade(null);
     setBusy("prepare");
 
     try {
-      const response = await fetch("/api/trade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "prepare",
-          owner,
-          amountUsdc: investAmount,
-          recommendation
-        })
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Trade preparation failed.");
-      setPreparedTrade(payload.preparedTrade);
+      setPreparedTrade(await requestBuyQuote(recommendation, investAmount));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Trade preparation failed.");
     } finally {
@@ -298,13 +260,14 @@ export default function Home() {
 
     try {
       const openedTokenSymbol = preparedTrade.recommendation.tokenSymbol;
+      let trade = preparedTrade;
       let signature = `dry-run-${crypto.randomUUID()}`;
 
       if (!dryRun) {
-        const transaction = deserializeTransaction(preparedTrade.swapTransaction);
-        signature = await signAndSendVersionedTransaction(transaction);
-      } else if (sandboxSigning) {
-        signature = await sendSandboxSignature(`Token-Metal sandbox buy ${preparedTrade.recommendation.tokenSymbol}`);
+        signature = await signAndBroadcast(trade.swapTransaction, async () => {
+          trade = await requestBuyQuote(trade.recommendation, trade.amountUsdc);
+          return trade.swapTransaction;
+        });
       }
 
       const response = await fetch("/api/trade", {
@@ -314,7 +277,7 @@ export default function Home() {
           action: "confirm",
           owner,
           signature,
-          preparedTrade
+          preparedTrade: trade
         })
       });
       const payload = await response.json();
@@ -339,25 +302,20 @@ export default function Home() {
     setBusy(position.id);
 
     try {
-      if (position.triggerOrder) {
-        throw new Error("Cancel the active TP/SL order before closing this position manually.");
-      }
-
-      const prepareResponse = await fetch("/api/positions/close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "prepare", owner, positionId: position.id })
-      });
-      const preparePayload = await prepareResponse.json();
-      if (!prepareResponse.ok) throw new Error(preparePayload.error || "Close preparation failed.");
+      const prepareClose = async () => {
+        const prepareResponse = await fetch("/api/positions/close", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "prepare", owner, positionId: position.id })
+        });
+        const preparePayload = await prepareResponse.json();
+        if (!prepareResponse.ok) throw new Error(preparePayload.error || "Close preparation failed.");
+        return preparePayload.closeTrade.swapTransaction as string;
+      };
 
       let signature = `dry-run-close-${crypto.randomUUID()}`;
-
       if (!dryRun) {
-        const transaction = deserializeTransaction(preparePayload.closeTrade.swapTransaction);
-        signature = await signAndSendVersionedTransaction(transaction);
-      } else if (sandboxSigning) {
-        signature = await sendSandboxSignature(`Token-Metal sandbox close ${position.tokenSymbol}`);
+        signature = await signAndBroadcast(await prepareClose(), prepareClose);
       }
 
       const confirmResponse = await fetch("/api/positions/close", {
@@ -380,15 +338,12 @@ export default function Home() {
     }
   }
 
+  // Practice mode only: closes a sandbox position without a transaction.
   async function closeLocal(position: Position) {
     setError("");
     setBusy(position.id);
 
     try {
-      if (position.triggerOrder) {
-        throw new Error("Cancel the active TP/SL order before using local close.");
-      }
-
       const confirmResponse = await fetch("/api/positions/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -413,434 +368,24 @@ export default function Home() {
     }
   }
 
-  async function armTriggerOrder(
-    position: Position,
-    options?: {
-      refreshAfter?: boolean;
-      suppressErrorReset?: boolean;
-      suppressErrorReport?: boolean;
-    }
-  ): Promise<boolean> {
-    if (!options?.suppressErrorReset) {
-      setError("");
-    }
-    setBusy(`arm:${position.id}`);
-
-    try {
-      if (tradeEngine !== "jupiter") {
-        throw new Error("Target profit and safety limits are not available for this type of pick.");
-      }
-
-      const challengeType = resolveTriggerChallengeType();
-      const challengeResponse = await fetch("/api/trigger/oco", {
+  // The wallet signs the server-built Stellar transaction and the server relays
+  // it. A transaction that expired before reaching the network is rebuilt and
+  // signed once more.
+  async function signAndBroadcast(xdr: string, rebuild: () => Promise<string>) {
+    let current = xdr;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const signedTransaction = await signTransaction(current);
+      const response = await fetch("/api/tx/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "challenge",
-          owner,
-          challengeType
-        })
-      });
-      const challengePayload = await challengeResponse.json();
-      if (!challengeResponse.ok) throw new Error(challengePayload.error || "Unable to start trigger auth.");
-      const challenge = challengePayload.challenge as TriggerAuthChallenge;
-
-      const proof = await signTriggerAuthChallenge(challenge);
-
-      const craftResponse = await fetch("/api/trigger/oco", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "craft",
-          owner,
-          positionId: position.id,
-          proof
-        })
-      });
-      const craftPayload = await craftResponse.json();
-      if (!craftResponse.ok) throw new Error(craftPayload.error || "Unable to craft trigger deposit.");
-
-      const signedDepositTx = await signVersionedTransactionToBase64(
-        deserializeTransaction(craftPayload.deposit.transaction as string)
-      );
-
-      const confirmResponse = await fetch("/api/trigger/oco", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "confirm",
-          owner,
-          positionId: position.id,
-          authToken: craftPayload.authToken,
-          depositRequestId: craftPayload.deposit.requestId,
-          depositSignedTx: signedDepositTx
-        })
-      });
-      const confirmPayload = await confirmResponse.json();
-      if (!confirmResponse.ok) throw new Error(confirmPayload.error || "Unable to create TP/SL trigger order.");
-
-      const updated = normalizePosition(confirmPayload.position);
-      if (updated) {
-        commitPositions((previous) => upsertOpenPosition(previous, updated));
-      }
-
-      setTriggerAuthTokens((previous) => ({ ...previous, [position.id]: craftPayload.authToken as string }));
-      if (options?.refreshAfter ?? true) {
-        await refreshPositions();
-      }
-      return true;
-    } catch (err) {
-      if (!options?.suppressErrorReport) {
-        setError(describeWalletError(err, "Unable to arm TP/SL order."));
-      }
-      return false;
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function armAllTriggerOrders() {
-    if (armingAll) return;
-    setError("");
-
-    if (tradeEngine !== "jupiter") {
-      setError("Target profit and safety limits are not available for this type of pick.");
-      return;
-    }
-
-    const openWithoutTrigger = positions.open.filter((position) => position.status === "open" && !position.triggerOrder);
-    if (openWithoutTrigger.length === 0) {
-      setError("No open positions without TP/SL orders.");
-      return;
-    }
-
-    setArmingAll(true);
-
-    let armed = 0;
-    const failed: string[] = [];
-
-    try {
-      for (const position of openWithoutTrigger) {
-        const success = await armTriggerOrder(position, {
-          refreshAfter: false,
-          suppressErrorReset: true,
-          suppressErrorReport: true
-        });
-        if (success) {
-          armed += 1;
-        } else {
-          failed.push(position.tokenSymbol);
-        }
-      }
-
-      await refreshPositions();
-
-      if (failed.length > 0) {
-        const successPrefix = armed > 0 ? `${armed} armed. ` : "";
-        setError(`${successPrefix}Failed to arm TP/SL for: ${failed.join(", ")}.`);
-      }
-    } finally {
-      setArmingAll(false);
-    }
-  }
-
-  async function syncTriggerOrder(position: Position) {
-    setError("");
-    setBusy(`sync:${position.id}`);
-
-    try {
-      const authToken = await getTriggerAuthTokenForPosition(position.id);
-
-      const response = await fetch("/api/trigger/oco", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "sync",
-          owner,
-          positionId: position.id,
-          authToken
-        })
+        body: JSON.stringify({ signedTransaction })
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Unable to sync trigger order state.");
-
-      const updated = normalizePosition(payload.position);
-      if (updated) {
-        commitPositions((previous) => upsertOpenPosition(previous, updated));
-      }
-    } catch (err) {
-      setError(describeWalletError(err, "Unable to sync TP/SL status."));
-    } finally {
-      setBusy("");
+      if (response.ok && payload.signature) return payload.signature as string;
+      if (payload.code !== "expired" || attempt > 0) throw new Error(payload.error || "Transaction was rejected.");
+      current = await rebuild();
     }
-  }
-
-  async function cancelTriggerOrder(position: Position) {
-    setError("");
-    setBusy(`cancel:${position.id}`);
-
-    try {
-      const authToken = await getTriggerAuthTokenForPosition(position.id);
-
-      const cancelCraftResponse = await fetch("/api/trigger/oco", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "cancelCraft",
-          owner,
-          positionId: position.id,
-          authToken
-        })
-      });
-      const cancelCraftPayload = await cancelCraftResponse.json();
-      if (!cancelCraftResponse.ok) throw new Error(cancelCraftPayload.error || "Unable to start TP/SL cancellation.");
-
-      const cancelSignedTx = await signVersionedTransactionToBase64(
-        deserializeTransaction(cancelCraftPayload.cancellation.transaction as string)
-      );
-
-      const cancelConfirmResponse = await fetch("/api/trigger/oco", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "cancelConfirm",
-          owner,
-          positionId: position.id,
-          authToken,
-          cancelRequestId: cancelCraftPayload.cancellation.requestId,
-          cancelSignedTx
-        })
-      });
-      const cancelConfirmPayload = await cancelConfirmResponse.json();
-      if (!cancelConfirmResponse.ok) throw new Error(cancelConfirmPayload.error || "Unable to confirm TP/SL cancellation.");
-
-      const updated = normalizePosition(cancelConfirmPayload.position);
-      if (updated) {
-        commitPositions((previous) => upsertOpenPosition(previous, updated));
-      }
-
-      setTriggerAuthTokens((previous) => {
-        const next = { ...previous };
-        delete next[position.id];
-        return next;
-      });
-
-      await refreshPositions();
-    } catch (err) {
-      setError(describeWalletError(err, "Unable to cancel TP/SL order."));
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function getTriggerAuthTokenForPosition(positionId: string) {
-    const cached = triggerAuthTokens[positionId];
-    if (cached) return cached;
-
-    const challengeType = resolveTriggerChallengeType();
-    const challengeResponse = await fetch("/api/trigger/oco", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "challenge",
-        owner,
-        challengeType
-      })
-    });
-    const challengePayload = await challengeResponse.json();
-    if (!challengeResponse.ok) throw new Error(challengePayload.error || "Unable to start trigger auth.");
-
-    const proof = await signTriggerAuthChallenge(challengePayload.challenge as TriggerAuthChallenge);
-
-    const authResponse = await fetch("/api/trigger/oco", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "authenticate",
-        owner,
-        proof
-      })
-    });
-    const authPayload = await authResponse.json();
-    if (!authResponse.ok) throw new Error(authPayload.error || "Unable to authenticate trigger session.");
-
-    const token = authPayload.authToken as string;
-    setTriggerAuthTokens((previous) => ({ ...previous, [positionId]: token }));
-    return token;
-  }
-
-  function resolveTriggerChallengeType(): "message" | "transaction" {
-    if ((publicKey && signMessage) || privyConnectedSolanaWallet) {
-      return "message";
-    }
-    return "transaction";
-  }
-
-  async function signTriggerAuthChallenge(challenge: TriggerAuthChallenge) {
-    if (challenge.type === "message") {
-      const messageBytes = new TextEncoder().encode(challenge.challenge);
-
-      if (publicKey && signMessage) {
-        const signature = await signMessage(messageBytes);
-        return {
-          type: "message" as const,
-          signature: bs58.encode(signature)
-        };
-      }
-
-      if (privyConnectedSolanaWallet) {
-        const signed = await privyConnectedSolanaWallet.signMessage({
-          message: messageBytes
-        });
-        return {
-          type: "message" as const,
-          signature: bs58.encode(signed.signature)
-        };
-      }
-
-      throw new Error("The connected wallet does not support message signing for trigger auth.");
-    }
-
-    const signedTransaction = await signVersionedTransactionToBase64(
-      deserializeTransaction(challenge.transaction)
-    );
-
-    return {
-      type: "transaction" as const,
-      signedTransaction
-    };
-  }
-
-  async function signVersionedTransactionToBase64(transaction: VersionedTransaction) {
-    if (publicKey && signTransaction) {
-      const signed = await signTransaction(transaction);
-      return bytesToBase64(signed.serialize());
-    }
-
-    if (privyConnectedSolanaWallet) {
-      const signed = await privyConnectedSolanaWallet.signTransaction({
-        transaction: transaction.serialize(),
-        chain: resolvePrivySolanaChain(cluster)
-      });
-      return bytesToBase64(signed.signedTransaction);
-    }
-
-    throw new Error("Finish signing in to confirm purchases.");
-  }
-
-  async function sendSandboxSignature(label: string) {
-    if (!owner) throw new Error("Sign in first.");
-
-    const ownerPubkey = new PublicKey(owner);
-
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey: ownerPubkey,
-        toPubkey: ownerPubkey,
-        lamports: 0
-      })
-    );
-    transaction.feePayer = ownerPubkey;
-    transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-    if (publicKey) {
-      const signature = await sendTransaction(transaction, connection, { skipPreflight: false });
-      await waitForSignatureConfirmationHttp(connection, signature);
-      console.info(label, signature);
-      return signature;
-    }
-
-    if (!privyConnectedSolanaWallet) {
-      throw new Error("Sign in first.");
-    }
-
-    const unsignedTransaction = transaction.serialize({
-      requireAllSignatures: false,
-      verifySignatures: false
-    });
-    const signed = await privySignAndSendTransaction({
-      transaction: unsignedTransaction,
-      wallet: privyConnectedSolanaWallet,
-      chain: resolvePrivySolanaChain(cluster)
-    });
-    const signature = bs58.encode(signed.signature);
-    await waitForSignatureConfirmationHttp(connection, signature);
-    console.info(label, signature);
-    return signature;
-  }
-
-  async function signAndSendVersionedTransaction(transaction: VersionedTransaction) {
-    if (!publicKey && privyConnectedSolanaWallet) {
-      const signed = await privySignAndSendTransaction({
-        transaction: transaction.serialize(),
-        wallet: privyConnectedSolanaWallet,
-        chain: resolvePrivySolanaChain(cluster),
-        options: { skipPreflight: true, maxRetries: 3 }
-      });
-      const signature = bs58.encode(signed.signature);
-      await waitForSignatureConfirmationHttp(connection, signature);
-      return signature;
-    }
-
-    // Prefer wallet-native broadcast path first. Some public RPCs reject direct sendRawTransaction with 403.
-    try {
-      const signature = await sendTransaction(transaction, connection, {
-        skipPreflight: true,
-        maxRetries: 3
-      });
-      await waitForSignatureConfirmationHttp(connection, signature);
-      return signature;
-    } catch (walletBroadcastError) {
-      if (isUserRejectedError(walletBroadcastError)) {
-        throw walletBroadcastError;
-      }
-
-      if (!signTransaction) {
-        throw walletBroadcastError;
-      }
-
-      const signed = await signTransaction(transaction);
-      const signedSignature = bs58.encode(signed.signatures[0]);
-      const serialized = signed.serialize();
-
-      try {
-        const signature = await connection.sendRawTransaction(serialized, {
-          skipPreflight: true,
-          maxRetries: 3
-        }).catch((error: Error) => {
-          if (error.message.toLowerCase().includes("already been processed")) return signedSignature;
-          throw error;
-        });
-        await waitForSignatureConfirmationHttp(connection, signature);
-        return signature;
-      } catch (rpcBroadcastError) {
-        if (isAccessForbiddenError(walletBroadcastError) || isAccessForbiddenError(rpcBroadcastError)) {
-          try {
-            const relayResponse = await fetch("/api/tx/broadcast", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                signedTransaction: bytesToBase64(serialized)
-              })
-            });
-            const relayPayload = await relayResponse.json();
-            if (!relayResponse.ok || !relayPayload.signature) {
-              throw new Error(relayPayload.error || "Relay broadcast failed.");
-            }
-            return relayPayload.signature as string;
-          } catch (relayError) {
-            throw new Error(
-              [
-                "RPC rejected transaction broadcast with 403 Access forbidden.",
-                relayError instanceof Error ? relayError.message : "Relay broadcast failed.",
-                "Use a write-enabled mainnet RPC in NEXT_PUBLIC_SOLANA_RPC_URL and restart the app."
-              ].join(" ")
-            );
-          }
-        }
-        throw rpcBroadcastError;
-      }
-    }
+    throw new Error("Transaction was rejected.");
   }
 
   return (
@@ -857,7 +402,7 @@ export default function Home() {
           if (r) window.localStorage.setItem("tm:questCharacter", r.key);
         }
         if (r) {
-          setRiskProfile(r.risk);
+          chooseRiskProfile(r.risk);
           setQuestCharacter(r.key);
         }
       }}
@@ -883,7 +428,7 @@ export default function Home() {
             </div>
             <div className="wallet-dock">
               <SkinSwitcher skin={skin} onChange={setSkin} />
-              <PrivyLoginButton />
+              <WalletButton />
             </div>
           </header>
 
@@ -926,7 +471,7 @@ export default function Home() {
                       className={`risk-dot ${riskProfile === risk ? "active" : ""}`}
                       type="button"
                       aria-label={risk}
-                      onClick={() => setRiskProfile(risk)}
+                      onClick={() => chooseRiskProfile(risk)}
                     >
                       <span>{risk.charAt(0).toUpperCase() + risk.slice(1)}</span>
                     </button>
@@ -999,7 +544,7 @@ export default function Home() {
 
               <div className={`key-button-wrap ${needsUsdcFunding ? "show-deposit-hint" : ""}`}>
                 <button className="key-button" disabled={!canRequestOpportunities} onClick={requestRecommendations}>
-                  {busy === "recommendations" ? "CALLING NANSEN..." : "GET OPPORTUNITIES"}
+                  {busy === "recommendations" ? "READING THE MARKET..." : "GET OPPORTUNITIES"}
                 </button>
                 {needsUsdcFunding ? (
                   <div className="hover-deposit-modal" role="tooltip" aria-live="polite">
@@ -1009,13 +554,11 @@ export default function Home() {
                 ) : null}
               </div>
               {!walletConnected ? (
-                <p className="console-note">
-                  {signedInWithoutWallet
-                    ? "Signed in. Finish setting up your account to see your balance."
-                    : "Sign in to see today's picks."}
-                </p>
+                <p className="console-note">Connect your Stellar wallet to see today&apos;s picks.</p>
               ) : needsUsdcFunding ? (
                 <p className="console-note">{fundingBlockerMessage}</p>
+              ) : belowMinimum ? (
+                <p className="console-note">{minimumMessage}</p>
               ) : (
                 <p className="console-note">Invest amount: {investDisplay}.</p>
               )}
@@ -1030,7 +573,7 @@ export default function Home() {
                     <span>{preparedTrade ? preparedTrade.recommendation.tokenSymbol : recommendations.length ? "live feed" : "waiting"}</span>
                     <div className="engine-mini-screen">
                       <span>Mode</span>
-                      <strong>{tradeEngine === "raydium-devnet" ? "Test" : "Live"}</strong>
+                      <strong>{dryRun ? "Practice" : "Live"}</strong>
                     </div>
                     {preparedTrade ? (
                       <button className="back-button" onClick={() => setPreparedTrade(null)}>Back</button>
@@ -1053,11 +596,9 @@ export default function Home() {
                             <Metric label="Upside" value={`${preparedTrade.recommendation.estimatedUpside} / ${formatCapitalValue(preparedTrade.expectedReturnUsd, capitalSymbol, "pnl")}`} />
                             <Metric label="Downside" value={`${preparedTrade.recommendation.estimatedDownside} / ${formatCapitalValue(preparedTrade.expectedLossUsd, capitalSymbol, "pnl")}`} />
                           </div>
-                          {tradeEngine === "raydium-devnet" ? (
-                            <p className="rationale">Test mode: a real test trade into {executableSymbol}. Position is labeled with this pick for UX testing.</p>
-                          ) : (
-                            <p className="rationale">{dryRun && sandboxSigning ? "You approve a harmless test transaction, then a practice position is created." : dryRun ? "A practice position will be created without any trade." : "One tap to confirm your purchase."}</p>
-                          )}
+                          <p className="rationale">
+                            {dryRun ? "A practice position will be created without any trade." : "One tap to confirm your purchase in your wallet."}
+                          </p>
                         </article>
 
                         <div className="embedded-review">
@@ -1066,36 +607,31 @@ export default function Home() {
                             <Metric label={`${capitalSymbol} amount`} value={`${preparedTrade.amountUsdc.toFixed(capitalPrecision)} ${capitalSymbol}`} />
                             {preparedTrade.commissionUsdc ? (
                               <Metric
-                                label="Platform fee (0.5%)"
+                                label="Platform fee (2%)"
                                 value={`${preparedTrade.commissionUsdc.toFixed(capitalPrecision)} ${capitalSymbol}`}
                               />
                             ) : null}
                             <div className="metric trade-plan-metric">
-                              <span>TP / SL / Trail</span>
+                              <span>TP / SL</span>
                               <strong>
                                 <b><span>TP</span>{preparedTrade.recommendation.takeProfit}</b>
                                 <b><span>SL</span>{preparedTrade.recommendation.stopLoss}</b>
-                                <b><span>Trail</span>{preparedTrade.recommendation.trailingStop || "-"}</b>
                               </strong>
                             </div>
                           </div>
                           <p className="rationale">{preparedTrade.recommendation.profileMatch}</p>
                           <button className="trade-now-button" disabled={busy === "trade" || Boolean(activePreparedPosition)} onClick={executeTrade}>
-                            {activePreparedPosition ? `Close ${activePreparedPosition.tokenSymbol} first` : busy === "trade" ? "Sending..." : dryRun && sandboxSigning ? "Sign sandbox trade" : dryRun ? "Create sandbox position" : "Trade now"}
+                            {activePreparedPosition ? `Close ${activePreparedPosition.tokenSymbol} first` : busy === "trade" ? "Confirm in your wallet..." : dryRun ? "Create practice position" : "Trade now"}
                           </button>
                         </div>
                       </>
                     ) : (
                       <>
-                        {recommendations.length === 0 ? <p className="hint">To get started, sign in, set your profile, then press get opportunities.</p> : null}
+                        {recommendations.length === 0 ? <p className="hint">To get started, connect your wallet, set your profile, then press get opportunities.</p> : null}
                         {recommendations.length ? (
                           <div className="op-summary">
-                            {tradeEngine === "raydium-devnet" ? (
-                              <span>Test mode trade into {executableSymbol}. Positions are labeled with the selected pick for UX testing.</span>
-                            ) : (
-                              <span>Picks ranked by expert market data and matched to your profile.</span>
-                            )}
-                            <span>Profile: {riskProfile} risk / {holdingPeriod}. Signals include liquidity, activity, holder breadth, and smart-money flow.</span>
+                            <span>Picks ranked with live Stellar market data and matched to your profile.</span>
+                            <span>Profile: {riskProfile} risk / {holdingPeriod}. Signals include liquidity, trading activity, volatility, trend, and holder breadth.</span>
                           </div>
                         ) : null}
                         <div className="op-card-grid">
@@ -1125,8 +661,8 @@ export default function Home() {
                                   <Metric label="Downside" value={recommendation.estimatedDownside} />
                                 </div>
                                 {selected?.id === recommendation.id ? (
-                                  <button className="review-cta compact-review-cta" disabled={busy === "prepare" || Boolean(activeRecommendationPosition)} onClick={() => prepareTrade(recommendation)}>
-                                    {activeRecommendationPosition ? `Active ${recommendation.tokenSymbol} position exists` : busy === "prepare" ? "Preparing swap..." : "Review selected trade"}
+                                  <button className="review-cta compact-review-cta" disabled={busy === "prepare" || Boolean(activeRecommendationPosition) || belowMinimum} onClick={() => prepareTrade(recommendation)}>
+                                    {activeRecommendationPosition ? `Active ${recommendation.tokenSymbol} position exists` : belowMinimum ? `Minimum ${minLiveTradeUsdc} USDC` : busy === "prepare" ? "Preparing swap..." : "Review selected trade"}
                                   </button>
                                 ) : null}
                               </article>
@@ -1143,13 +679,8 @@ export default function Home() {
                       positionsLastUpdated={positionsLastUpdated}
                       capitalSymbol={capitalSymbol}
                       busy={busy}
-                      armingAll={armingAll}
                       onClose={closeNow}
-                      onLocalClose={closeLocal}
-                      onArmTrigger={armTriggerOrder}
-                      onArmAllTrigger={armAllTriggerOrders}
-                      onSyncTrigger={syncTriggerOrder}
-                      onCancelTrigger={cancelTriggerOrder}
+                      onLocalClose={dryRun ? closeLocal : undefined}
                       onInspect={setInspectedPosition}
                     />
                   </div>
@@ -1158,17 +689,13 @@ export default function Home() {
             </section>
           </section>
 
-          {cluster !== "mainnet-beta" ? (
+          {dryRun || stellarNetwork !== "mainnet" ? (
             <section className="screen network-warning network-warning-bottom">
-              <strong>{dryRun ? "Sandbox mode: no real trade" : "Devnet testing mode"}</strong>
+              <strong>{dryRun ? "Practice mode: no real trade" : "Stellar testnet mode"}</strong>
               <p>
-                {tradeEngine === "raydium-devnet"
-                  ? "Raydium devnet mode signs a real wallet transaction against a configured Raydium CPMM pool."
-                  : dryRun && sandboxSigning
-                  ? "The app will fetch picks and ask you to approve a harmless test transaction before creating practice positions. No real trade happens."
-                  : dryRun
-                    ? "The app will fetch picks and create practice positions. No real trade or confirmation needed."
-                  : "Sign-in, balance, picks, review screens, and investment tracking can all be tested here."}
+                {dryRun
+                  ? "The app fetches live picks and creates practice positions. No real trade or wallet confirmation happens."
+                  : "Trades run on Stellar testnet. Picks come from mainnet data, so they may have no testnet market."}
               </p>
             </section>
           ) : null}
@@ -1232,9 +759,6 @@ export default function Home() {
               <div className="position-details-field"><span>Token Amount (UI)</span><strong>{new Intl.NumberFormat("en-US", { maximumFractionDigits: 8 }).format(inspectedPosition.tokenAmountUi)}</strong></div>
               <div className="position-details-field"><span>Take Profit</span><strong>{inspectedPosition.takeProfit}</strong></div>
               <div className="position-details-field"><span>Stop Loss</span><strong>{inspectedPosition.stopLoss}</strong></div>
-              <div className="position-details-field"><span>Trailing Stop</span><strong>{inspectedPosition.trailingStop || "-"}</strong></div>
-              <div className="position-details-field"><span>Trigger State</span><strong>{inspectedPosition.triggerOrder?.orderState || "not armed"}</strong></div>
-              <div className="position-details-field"><span>Trigger Order ID</span><strong>{inspectedPosition.triggerOrder?.orderId || "-"}</strong></div>
               <div className="position-details-field"><span>Holding Period</span><strong>{inspectedPosition.expectedHoldingPeriod}</strong></div>
               <div className="position-details-field"><span>Risk Level</span><strong>{inspectedPosition.riskLevel}</strong></div>
               <div className="position-details-field"><span>Opened At</span><strong>{formatDateTime(inspectedPosition.openedAt)}</strong></div>
@@ -1244,7 +768,7 @@ export default function Home() {
 
             <div className="position-details-links">
               <a
-                href={buildSolanaExplorerTxUrl(inspectedPosition.openSignature, cluster)}
+                href={explorerTxUrl(inspectedPosition.openSignature)}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -1252,7 +776,7 @@ export default function Home() {
               </a>
               {inspectedPosition.closeSignature ? (
                 <a
-                  href={buildSolanaExplorerTxUrl(inspectedPosition.closeSignature, cluster)}
+                  href={explorerTxUrl(inspectedPosition.closeSignature)}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -1282,29 +806,18 @@ function PositionsPanel({
   positionsLastUpdated,
   capitalSymbol,
   busy,
-  armingAll,
   onClose,
   onLocalClose,
-  onArmTrigger,
-  onArmAllTrigger,
-  onSyncTrigger,
-  onCancelTrigger,
   onInspect
 }: {
   positions: { open: Position[]; closed: Position[] };
   positionsLastUpdated: Date | null;
   capitalSymbol: string;
   busy: string;
-  armingAll: boolean;
   onClose: (position: Position) => void;
-  onLocalClose: (position: Position) => void;
-  onArmTrigger: (position: Position) => Promise<boolean>;
-  onArmAllTrigger: () => void;
-  onSyncTrigger: (position: Position) => void;
-  onCancelTrigger: (position: Position) => void;
+  onLocalClose?: (position: Position) => void;
   onInspect: (position: Position) => void;
 }) {
-  const openWithoutTriggerCount = positions.open.filter((position) => !position.triggerOrder).length;
   const closedPositions = [...positions.closed].sort((a, b) => {
     const aTime = new Date(a.closedAt || a.openedAt).getTime();
     const bTime = new Date(b.closedAt || b.openedAt).getTime();
@@ -1320,14 +833,6 @@ function PositionsPanel({
             {positions.open.length} open / {positions.closed.length} closed
             {positionsLastUpdated ? ` - ${positionsLastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : " - refresh 60s"}
           </span>
-          <button
-            className="secondary subtle arm-all-button"
-            type="button"
-            disabled={armingAll || openWithoutTriggerCount === 0}
-            onClick={onArmAllTrigger}
-          >
-            {armingAll ? "Arming all..." : "Arm TP/SL All"}
-          </button>
         </div>
       </div>
       <div className="position-columns">
@@ -1340,15 +845,8 @@ function PositionsPanel({
                 key={position.id}
                 position={position}
                 onClose={() => onClose(position)}
-                onLocalClose={() => onLocalClose(position)}
-                globalBusy={armingAll}
+                onLocalClose={onLocalClose ? () => onLocalClose(position) : undefined}
                 busy={busy === position.id}
-                arming={busy === `arm:${position.id}`}
-                syncingTrigger={busy === `sync:${position.id}`}
-                cancellingTrigger={busy === `cancel:${position.id}`}
-                onArmTrigger={() => onArmTrigger(position)}
-                onSyncTrigger={() => onSyncTrigger(position)}
-                onCancelTrigger={() => onCancelTrigger(position)}
                 capitalSymbol={capitalSymbol}
                 onInspect={() => onInspect(position)}
               />
@@ -1364,11 +862,7 @@ function PositionsPanel({
                 key={position.id}
                 position={position}
                 onClose={() => undefined}
-                globalBusy={false}
                 busy={false}
-                arming={false}
-                syncingTrigger={false}
-                cancellingTrigger={false}
                 closed
                 capitalSymbol={capitalSymbol}
                 onInspect={() => onInspect(position)}
@@ -1385,14 +879,7 @@ function PositionRow({
   position,
   onClose,
   onLocalClose,
-  globalBusy,
   busy,
-  arming,
-  syncingTrigger,
-  cancellingTrigger,
-  onArmTrigger,
-  onSyncTrigger,
-  onCancelTrigger,
   capitalSymbol,
   onInspect,
   closed = false
@@ -1400,20 +887,13 @@ function PositionRow({
   position: Position;
   onClose: () => void;
   onLocalClose?: () => void;
-  globalBusy: boolean;
   busy: boolean;
-  arming: boolean;
-  syncingTrigger: boolean;
-  cancellingTrigger: boolean;
-  onArmTrigger?: () => void;
-  onSyncTrigger?: () => void;
-  onCancelTrigger?: () => void;
   capitalSymbol: string;
   onInspect: () => void;
   closed?: boolean;
 }) {
   const pnlClass = (position.pnlUsd || 0) >= 0 ? "positive" : "negative";
-  const valueLabel = capitalSymbol === "SOL" ? "SOL" : "USD";
+  const valueLabel = "USD";
 
   return (
     <div
@@ -1434,31 +914,24 @@ function PositionRow({
       <div className={pnlClass}><span>P/L {valueLabel}</span><br />{formatCompactCapitalValue(position.pnlUsd, capitalSymbol, "pnl")}</div>
       <div className={pnlClass}><span>P/L %</span><br />{pct(position.pnlPercent)}</div>
       <div><span>TP / SL</span><br />{position.takeProfit} / {position.stopLoss}</div>
-      <div>
-        <span>TP/SL Order</span>
-        <br />
-        {position.triggerOrder
-          ? `${position.triggerOrder.orderState}${position.triggerOrder.rawState ? ` (${position.triggerOrder.rawState})` : ""}`
-          : "not armed"}
-      </div>
       {closed ? (
         <span className="hint">Closed</span>
       ) : (
         <div className="position-actions">
           <button
             className="secondary"
-            disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || Boolean(position.triggerOrder)}
+            disabled={busy}
             onClick={(event) => {
               event.stopPropagation();
               onClose();
             }}
           >
-            {busy ? "Closing..." : position.triggerOrder ? "Cancel TP/SL first" : "Close now"}
+            {busy ? "Closing..." : "Close now"}
           </button>
           {onLocalClose ? (
             <button
               className="secondary subtle"
-              disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || Boolean(position.triggerOrder)}
+              disabled={busy}
               onClick={(event) => {
                 event.stopPropagation();
                 onLocalClose();
@@ -1467,41 +940,6 @@ function PositionRow({
               Local close
             </button>
           ) : null}
-          {position.triggerOrder ? (
-            <button
-              className="secondary subtle"
-              disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || !onSyncTrigger}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSyncTrigger?.();
-              }}
-            >
-              {syncingTrigger ? "Syncing..." : "Sync TP/SL"}
-            </button>
-          ) : null}
-          {position.triggerOrder ? (
-            <button
-              className="secondary subtle"
-              disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || !onCancelTrigger}
-              onClick={(event) => {
-                event.stopPropagation();
-                onCancelTrigger?.();
-              }}
-            >
-              {cancellingTrigger ? "Cancelling..." : "Cancel TP/SL"}
-            </button>
-          ) : (
-            <button
-              className="secondary subtle"
-              disabled={globalBusy || busy || arming || syncingTrigger || cancellingTrigger || !onArmTrigger}
-              onClick={(event) => {
-                event.stopPropagation();
-                onArmTrigger?.();
-              }}
-            >
-              {arming ? "Arming..." : "Arm TP/SL"}
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -1568,32 +1006,16 @@ function dedupePositionsById(positions: Position[]): Position[] {
 }
 
 function formatCapitalValue(value: number | null | undefined, symbol: string, mode: "price" | "pnl") {
+  void symbol;
   if (value === null || value === undefined || Number.isNaN(value)) return "-";
-
-  if (symbol !== "SOL") {
-    return usd(value);
+  if (mode === "price" && Math.abs(value) < 0.01) {
+    return `$${new Intl.NumberFormat("en-US", { maximumSignificantDigits: 4 }).format(value)}`;
   }
-
-  const abs = Math.abs(value);
-  const digits = mode === "price" || abs < 0.01 ? 8 : 4;
-  const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits
-  }).format(value);
-
-  return `${formatted} SOL`;
+  return usd(value);
 }
 
 function formatCompactCapitalValue(value: number | null | undefined, symbol: string, mode: "price" | "pnl") {
-  if (value === null || value === undefined || Number.isNaN(value)) return "-";
-  if (symbol !== "SOL") return usd(value);
-
-  const abs = Math.abs(value);
-  const digits = mode === "price" || abs < 0.01 ? 8 : 4;
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits
-  }).format(value);
+  return formatCapitalValue(value, symbol, mode);
 }
 
 function formatDateTime(value: string) {
@@ -1602,93 +1024,9 @@ function formatDateTime(value: string) {
   return parsed.toLocaleString();
 }
 
-function buildSolanaExplorerTxUrl(signature: string, clusterName: string) {
-  const base = `https://explorer.solana.com/tx/${encodeURIComponent(signature)}`;
-  if (clusterName === "mainnet-beta") return base;
-  return `${base}?cluster=${encodeURIComponent(clusterName)}`;
-}
-
-function deserializeTransaction(base64: string) {
-  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-  return VersionedTransaction.deserialize(bytes);
-}
-
+// Wallets reject with Errors or plain objects like { code, message }.
 function describeWalletError(error: unknown, fallback: string) {
-  if (!(error instanceof Error)) return fallback;
-
-  const nested = error as Error & {
-    error?: Error & { logs?: string[] };
-    logs?: string[];
-  };
-  const parts = [error.message || error.name || fallback];
-
-  if (nested.error?.message && nested.error.message !== error.message) {
-    parts.push(nested.error.message);
-  }
-
-  const logs = nested.logs || nested.error?.logs;
-  if (logs?.length) {
-    parts.push(logs.slice(-8).join("\n"));
-  }
-
-  return parts.join("\n");
-}
-
-function isAccessForbiddenError(error: unknown) {
-  if (!(error instanceof Error)) return false;
-  const message = error.message.toLowerCase();
-  return message.includes("access forbidden") || message.includes("403");
-}
-
-function isUserRejectedError(error: unknown) {
-  if (!(error instanceof Error)) return false;
-  const message = error.message.toLowerCase();
-  return (
-    message.includes("rejected") ||
-    message.includes("declined") ||
-    message.includes("cancelled") ||
-    message.includes("canceled") ||
-    message.includes("denied")
-  );
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-  return btoa(binary);
-}
-
-async function waitForSignatureConfirmationHttp(
-  connection: Connection,
-  signature: string,
-  timeoutMs = 75_000,
-  pollIntervalMs = 1_500
-) {
-  const start = Date.now();
-
-  while (Date.now() - start < timeoutMs) {
-    const statusResponse = await connection.getSignatureStatuses([signature], {
-      searchTransactionHistory: true
-    });
-    const status = statusResponse.value[0];
-
-    if (status?.err) {
-      throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
-    }
-
-    if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
-      return;
-    }
-
-    await sleep(pollIntervalMs);
-  }
-
-  throw new Error(`Transaction confirmation timed out for ${signature}`);
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  if (error instanceof Error) return error.message || fallback;
+  if (error && typeof error === "object" && "message" in error) return String((error as { message: unknown }).message);
+  return typeof error === "string" ? error : fallback;
 }

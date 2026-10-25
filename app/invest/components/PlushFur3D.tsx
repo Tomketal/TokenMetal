@@ -96,9 +96,12 @@ function FurBall() {
     mouseRef.current[1] += (target.y - mouseRef.current[1]) * 0.08;
 
     const t = state.clock.elapsedTime;
-    for (const m of materials) {
-      m.uniforms.uTime.value = t;
-      m.uniforms.uMouse.value.set(mouseRef.current[0], mouseRef.current[1]);
+    // Update uniforms through the rendered meshes (like the rotation above)
+    // rather than the memoized materials, which React's hooks lint treats as frozen.
+    for (const child of groupRef.current.children) {
+      const material = (child as THREE.Mesh).material as THREE.ShaderMaterial;
+      material.uniforms.uTime.value = t;
+      material.uniforms.uMouse.value.set(mouseRef.current[0], mouseRef.current[1]);
     }
   });
 

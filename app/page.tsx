@@ -31,7 +31,7 @@ const threeSteps = [
 ];
 
 const demoFlow = [
-  "Sign in with email or Google",
+  "Connect your Stellar wallet",
   "Set risk, amount, and how long you want to invest",
   "Review today's picks",
   "Confirm your purchase",
@@ -39,11 +39,11 @@ const demoFlow = [
 ];
 
 const trustSignals = [
-  "Expert insights: trading activity, popularity, and what top investors are buying",
+  "Live market data: trading activity, liquidity, volatility, and holder base",
   "Every trade confirmed by you — no surprises",
   "One-tap trades, fully in your control",
   "Live and ready",
-  "Sign in with email, Google, or wallet",
+  "Works with Freighter, xBull, Lobstr, and other Stellar wallets",
   "Built for first-time crypto investors"
 ];
 
@@ -93,7 +93,7 @@ export default function LandingPage() {
           <h1>Stellar investing made easy.</h1>
           <p className="hero-lede">
             Token Metal turns crypto investing into a guided three-step flow for beginners:
-            choose your profile, review today's picks, and invest with one confirmation.
+            choose your profile, review today&apos;s picks, and invest with one confirmation.
           </p>
           <div className="hero-actions">
             <LaunchButton />
