@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "backtest": "tsx scripts/backtest.ts",
+    "dev:https": "next dev --experimental-https"
   },
   "dependencies": {
+    "@creit.tech/stellar-wallets-kit": "^2.7.1",
     "@privy-io/react-auth": "^3.22.2",
     "@raydium-io/raydium-sdk-v2": "^0.2.41-alpha",
     "@react-three/fiber": "^9.8.2",
@@ -21,6 +24,7 @@
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-solflare": "^0.6.32",
     "@solana/web3.js": "^1.98.4",
+    "@stellar/stellar-sdk": "^17.4.0",
     "bn.js": "^5.2.3",
     "decimal.js": "^10.6.0",
     "next": "^16.0.0",
@@ -31,13 +35,14 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
-    "@types/bn.js": "^5.2.0",
+    "@google-cloud/bigquery": "^8.3.1",
     "@types/node": "^24.9.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@types/three": "^0.186.0",
     "eslint": "^9.38.0",
     "eslint-config-next": "^16.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }

@@ -1,12 +1,4 @@
-export const riskProfiles = [
-  "very low",
-  "low",
-  "medium low",
-  "medium",
-  "medium high",
-  "high",
-  "very high"
-] as const;
+export const riskProfiles = ["low", "medium", "high"] as const;
 
 export const holdingPeriods = [
   "3 days",
@@ -34,7 +26,7 @@ export type TriggerOrderState =
   | "unknown";
 
 export interface RecommendationRequest {
-  walletAddress: string;
+  walletAddress?: string;
   usdcBalance: number;
   riskProfile: RiskProfile;
   allocationPercentage: number;

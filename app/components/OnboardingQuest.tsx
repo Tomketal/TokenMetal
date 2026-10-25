@@ -1,5 +1,5 @@
-"use client";
 // @ts-nocheck
+"use client";
 /* Token-Metal Onboarding Quest — React wrapper around the vanilla-JS engine. */
 
 import { useEffect, useRef } from "react";

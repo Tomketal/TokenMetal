@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Nunito, Press_Start_2P } from "next/font/google";
-import "@solana/wallet-adapter-react-ui/styles.css";
 import "./globals.css";
 import { WalletProviders } from "./providers";
 

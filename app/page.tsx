@@ -136,11 +136,11 @@ export default function LandingPage() {
           <div className="config-module risk-module">
             <div className="config-screen mini-config-screen">
               <span>Risk profile</span>
-              <strong>medium high</strong>
+              <strong>medium</strong>
             </div>
-            <div className="risk-keypad" aria-label="Risk level set to 5">
-              {[1, 2, 3, 4, 5, 6, 7].map((level) => (
-                <span className={level === 5 ? "active" : ""} key={level}>
+            <div className="risk-keypad" aria-label="Risk level set to 2">
+              {[1, 2, 3].map((level) => (
+                <span className={level === 2 ? "active" : ""} key={level}>
                   {level}
                 </span>
               ))}

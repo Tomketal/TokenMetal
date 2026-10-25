@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { listPositions } from "@/lib/positions/store";
+import { explorerTxUrl } from "@/lib/stellar/network";
 import {
   listTransactions,
   summarizeTransactions,
@@ -10,7 +11,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const cluster = process.env.NEXT_PUBLIC_SOLANA_CLUSTER || "mainnet-beta";
 
 type SearchParams =
   | Promise<Record<string, string | string[] | undefined>>
@@ -213,7 +213,7 @@ export default async function TransactionsPage({
                   <Td>{formatNullablePercent(transaction.pnlPercent)}</Td>
                   <Td>
                     <a
-                      href={buildSolanaExplorerTxUrl(transaction.signature)}
+                      href={explorerTxUrl(transaction.signature)}
                       target="_blank"
                       rel="noreferrer"
                       style={{ color: "#1d5676", textDecoration: "none" }}
@@ -293,11 +293,6 @@ function formatDateTime(value: string) {
 function shorten(value: string) {
   if (value.length <= 14) return value;
   return `${value.slice(0, 6)}...${value.slice(-6)}`;
-}
-
-function buildSolanaExplorerTxUrl(signature: string) {
-  const suffix = cluster === "mainnet-beta" ? "" : `?cluster=${encodeURIComponent(cluster)}`;
-  return `https://explorer.solana.com/tx/${encodeURIComponent(signature)}${suffix}`;
 }
 
 const linkButtonStyle: CSSProperties = {
