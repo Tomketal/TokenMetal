@@ -16,7 +16,7 @@ const DATA_SOURCE = "Stellar Expert + Horizon (mainnet)";
 const MAX_CORRELATION = 0.95; // don't hand out XLM and yXLM as two "different" picks
 const FALLBACK_QUOTE_USDC = 10;
 
-interface ScoredToken {
+export interface ScoredToken {
   token: TokenMetrics;
   riskScore: number;
   confidenceScore: number;
@@ -26,7 +26,7 @@ interface ScoredToken {
 export async function getStellarRecommendations(request: RecommendationRequest): Promise<TokenRecommendation[]> {
   const tokens = await loadMarketSnapshot();
   const amountUsdc = (request.usdcBalance * request.allocationPercentage) / 100;
-  const ranked = tokens.map((token) => scoreToken(token, request)).sort((a, b) => b.rankScore - a.rankScore);
+  const ranked = rankTokens(tokens, request);
 
   // Walk the ranking and keep picks that are liquid enough for this amount and
   // not just a copy of a pick we already have.
@@ -34,12 +34,7 @@ export async function getStellarRecommendations(request: RecommendationRequest):
   const picks: Array<ScoredToken & { priceImpact: number | null }> = [];
   for (const candidate of ranked) {
     if (picks.length === 3) break;
-    const duplicate = picks.some(
-      (pick) =>
-        underlying(pick.token.code) === underlying(candidate.token.code) ||
-        correlation(pick.token.dailyCloses, candidate.token.dailyCloses) > MAX_CORRELATION
-    );
-    if (duplicate) continue;
+    if (duplicatesAPick(picks, candidate)) continue;
 
     const priceImpact = await estimatePriceImpact(candidate.token, amountUsdc > 0 ? amountUsdc : FALLBACK_QUOTE_USDC);
     if (priceImpact !== null && priceImpact > maxImpact) continue;
@@ -48,6 +43,31 @@ export async function getStellarRecommendations(request: RecommendationRequest):
 
   if (picks.length === 0) throw new Error("No Stellar token currently fits this profile with enough liquidity.");
   return picks.map((pick) => toRecommendation(pick, request, amountUsdc));
+}
+
+// Pure scoring shared by the live engine and the backtest.
+export function rankTokens(tokens: TokenMetrics[], request: RecommendationRequest) {
+  return tokens.map((token) => scoreToken(token, request)).sort((a, b) => b.rankScore - a.rankScore);
+}
+
+export function duplicatesAPick(picks: ScoredToken[], candidate: ScoredToken) {
+  return picks.some(
+    (pick) =>
+      underlying(pick.token.code) === underlying(candidate.token.code) ||
+      correlation(pick.token.dailyCloses, candidate.token.dailyCloses) > MAX_CORRELATION
+  );
+}
+
+// Stops scale with the volatility expected over the holding period; cautious
+// profiles get tighter stops (capped at ~13% for "very low"), aggressive ones
+// a wider reward-to-risk. Returned as fractions (0.1 = 10%).
+export function exitLevels(token: TokenMetrics, request: RecommendationRequest) {
+  const targetRisk = riskTargets[request.riskProfile];
+  const horizonVolatility = token.volatility * Math.sqrt(holdingDays[request.holdingPeriod] / 365);
+  const maxStopLoss = 0.08 + (targetRisk / 100) * 0.35;
+  const stopLoss = clamp(horizonVolatility * (0.7 + targetRisk / 100), 0.03, maxStopLoss);
+  const takeProfit = clamp(stopLoss * (1.5 + targetRisk / 100), 0.05, 1.5);
+  return { takeProfit, stopLoss };
 }
 
 function scoreToken(token: TokenMetrics, request: RecommendationRequest): ScoredToken {
@@ -92,15 +112,7 @@ function toRecommendation(
   amountUsdc: number
 ): TokenRecommendation {
   const { token, riskScore, confidenceScore } = pick;
-  const targetRisk = riskTargets[request.riskProfile];
-
-  // Stops scale with the volatility expected over the holding period; cautious
-  // profiles get tighter stops (capped at ~13% for "very low"), aggressive ones
-  // a wider reward-to-risk.
-  const horizonVolatility = token.volatility * Math.sqrt(holdingDays[request.holdingPeriod] / 365);
-  const maxStopLoss = 0.08 + (targetRisk / 100) * 0.35;
-  const stopLoss = clamp(horizonVolatility * (0.7 + targetRisk / 100), 0.03, maxStopLoss);
-  const takeProfit = clamp(stopLoss * (1.5 + targetRisk / 100), 0.05, 1.5);
+  const { takeProfit, stopLoss } = exitLevels(token, request);
   const sl = Math.round(stopLoss * 100);
   const tp = Math.round(takeProfit * 100);
 
