@@ -1,4 +1,4 @@
-import type { RecommendationRequest, TokenRecommendation } from "@/lib/types";
+import type { RecommendationRequest, RiskProfile, TokenRecommendation } from "@/lib/types";
 import { loadMarketSnapshot, quoteBuyValueUsd, type TokenMetrics } from "./market";
 import {
   boundedScore,
@@ -25,9 +25,29 @@ export interface ScoringOptions {
   lowVolatilityTilt: number;
   qualityTilt?: number; // favors liquid, long-lived tokens (Stellar Expert-style rating)
   smartMoney?: number; // follows net buying by wallets with the best trailing returns
+  // Quality floor: tokens below it are only used when not enough tokens pass.
+  qualityFloor?: { minMedianVolumeUsd: number; minAgeDays: number; profiles: RiskProfile[] };
 }
 
-export const DEFAULT_SCORING: ScoringOptions = { momentum: 1, trend: 1, lowVolatilityTilt: 0 };
+// How positions are exited. takeProfitMultiplier scales the volatility-based
+// take profit (null = no take profit); stopLoss toggles the stop.
+export interface ExitPolicy {
+  takeProfitMultiplier: number | null;
+  stopLoss: boolean;
+}
+
+// Stop loss only: a take profit capped the winners and lost money over 2021-2026
+// (validation: +1.4% without it vs -1.9% with it).
+export const DEFAULT_EXITS: ExitPolicy = { takeProfitMultiplier: null, stopLoss: true };
+
+// The quality floor for medium/high was chosen on 2022-2024 Hubble data and held
+// on 2024-2026 (medium/high selection percentile 41% -> 55%); see scripts/backtest.ts.
+export const DEFAULT_SCORING: ScoringOptions = {
+  momentum: 1,
+  trend: 1,
+  lowVolatilityTilt: 0,
+  qualityFloor: { minMedianVolumeUsd: 20_000, minAgeDays: 365, profiles: ["medium", "high"] }
+};
 
 export interface ScoredToken {
   token: TokenMetrics;
@@ -60,7 +80,15 @@ export async function getStellarRecommendations(request: RecommendationRequest):
 
 // Pure scoring shared by the live engine and the backtest.
 export function rankTokens(tokens: TokenMetrics[], request: RecommendationRequest, options = DEFAULT_SCORING) {
-  return tokens.map((token) => scoreToken(token, request, options)).sort((a, b) => b.rankScore - a.rankScore);
+  const floor = options.qualityFloor;
+  const passes = (token: TokenMetrics) =>
+    !floor ||
+    !floor.profiles.includes(request.riskProfile) ||
+    (token.medianDailyVolumeUsd >= floor.minMedianVolumeUsd && token.ageDays >= floor.minAgeDays);
+  return tokens
+    .map((token) => ({ scored: scoreToken(token, request, options), ok: passes(token) }))
+    .sort((a, b) => Number(b.ok) - Number(a.ok) || b.scored.rankScore - a.scored.rankScore)
+    .map(({ scored }) => scored);
 }
 
 export function duplicatesAPick(picks: ScoredToken[], candidate: ScoredToken) {
@@ -74,13 +102,16 @@ export function duplicatesAPick(picks: ScoredToken[], candidate: ScoredToken) {
 // Stops scale with the volatility expected over the holding period; cautious
 // profiles get tighter stops (capped at ~15% for "low"), aggressive ones
 // a wider reward-to-risk. Returned as fractions (0.1 = 10%).
-export function exitLevels(token: TokenMetrics, request: RecommendationRequest) {
+export function exitLevels(token: TokenMetrics, request: RecommendationRequest, policy = DEFAULT_EXITS) {
   const targetRisk = riskTargets[request.riskProfile];
   const horizonVolatility = token.volatility * Math.sqrt(holdingDays[request.holdingPeriod] / 365);
   const maxStopLoss = 0.08 + (targetRisk / 100) * 0.35;
   const stopLoss = clamp(horizonVolatility * (0.7 + targetRisk / 100), 0.03, maxStopLoss);
-  const takeProfit = clamp(stopLoss * (1.5 + targetRisk / 100), 0.05, 1.5);
-  return { takeProfit, stopLoss };
+  const baseTakeProfit = clamp(stopLoss * (1.5 + targetRisk / 100), 0.05, 1.5);
+  return {
+    takeProfit: policy.takeProfitMultiplier === null ? null : baseTakeProfit * policy.takeProfitMultiplier,
+    stopLoss: policy.stopLoss ? stopLoss : null
+  };
 }
 
 function scoreToken(token: TokenMetrics, request: RecommendationRequest, options: ScoringOptions): ScoredToken {
@@ -131,8 +162,9 @@ function toRecommendation(
 ): TokenRecommendation {
   const { token, riskScore, confidenceScore } = pick;
   const { takeProfit, stopLoss } = exitLevels(token, request);
-  const sl = Math.round(stopLoss * 100);
-  const tp = Math.round(takeProfit * 100);
+  const sl = Math.round((stopLoss ?? 0) * 100);
+  // Typical (one standard deviation) move over the holding period, for context.
+  const typicalMove = Math.round(token.volatility * Math.sqrt(holdingDays[request.holdingPeriod] / 365) * 100);
 
   const impactText =
     pick.priceImpact === null
@@ -153,11 +185,10 @@ function toRecommendation(
       `${Math.round(token.volatility * 100)}% annualized volatility, ${token.holders.toLocaleString("en-US")} holders, ` +
       `$${Math.round(token.volume7dUsd).toLocaleString("en-US")} traded this week, liquidity ${token.rating.liquidity}/10 on the Stellar DEX.` +
       impactText,
-    takeProfit: `+${tp}%`,
-    stopLoss: `-${sl}%`,
-    trailingStop: riskScore >= 65 ? `${Math.max(5, Math.round(sl * 0.8))}% after +${Math.round(tp * 0.5)}% move` : undefined,
-    estimatedUpside: `+${tp}%`,
-    estimatedDownside: `-${sl}%`,
+    takeProfit: takeProfit === null ? "none (hold to your horizon)" : `+${Math.round(takeProfit * 100)}%`,
+    stopLoss: stopLoss === null ? "none" : `-${sl}%`,
+    estimatedUpside: `+${typicalMove}%`,
+    estimatedDownside: stopLoss === null ? `-${typicalMove}%` : `-${sl}%`,
     profileMatch: profileMatchText(Math.round(riskScore), request.riskProfile, request.holdingPeriod),
     nansenSource: DATA_SOURCE
   };

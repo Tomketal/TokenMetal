@@ -45,6 +45,7 @@ export interface TokenMetrics {
   volatility: number; // annualized, fraction
   maxDrawdown: number; // fraction over the window
   smartFlow?: number; // [-1, 1] net buying by historically profitable wallets
+  medianDailyVolumeUsd: number; // over the window, all markets (point-in-time)
 }
 
 export interface ExpertAsset {
@@ -169,6 +170,8 @@ export function metricsAt(series: TokenSeries, endIndex: number, options: { live
   const { item } = series;
   const candleVolume7d = series.volumesUsd.slice(endIndex - 6, endIndex + 1).reduce((sum, value) => sum + value, 0);
   const derived = series.pointInTime ? derivedProfile(series, startIndex, endIndex, tradeDays) : null;
+  const sortedVolumes = series.volumesUsd.slice(startIndex, endIndex + 1).sort((a, b) => a - b);
+  const medianDailyVolumeUsd = sortedVolumes[Math.floor(sortedVolumes.length / 2)] * series.volumeScale;
 
   return {
     assetId: series.assetId,
@@ -192,7 +195,8 @@ export function metricsAt(series: TokenSeries, endIndex: number, options: { live
     return7d: last / closes[Math.max(0, closes.length - 8)] - 1,
     return30d: last / closes[0] - 1,
     volatility: Math.sqrt(variance) * Math.sqrt(365),
-    maxDrawdown
+    maxDrawdown,
+    medianDailyVolumeUsd
   };
 }
 

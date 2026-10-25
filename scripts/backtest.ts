@@ -1,6 +1,6 @@
 // Backtest of the Stellar recommendation engine on Horizon price history.
 //
-//   npm run backtest -- [days] [--variants] [--hubble] [--out=file.json]
+//   npm run backtest -- [days] [--variants[=signals|quality|exits]] [--hubble] [--from=YYYY-MM-DD] [--out=file.json]
 //
 // Every 7 days in the past, the engine ranks the universe using only the 31
 // days of data available on that date, picks 3 tokens per risk profile and
@@ -21,8 +21,10 @@ import { loadHubbleHistory } from "@/lib/recommendations/hubble";
 import { loadSmartMoney, smartFlowAt } from "@/lib/recommendations/smartMoney";
 import { loadHistory, metricsAt, type TokenMetrics, type TokenSeries } from "@/lib/recommendations/market";
 import {
+  DEFAULT_EXITS,
   DEFAULT_SCORING,
   duplicatesAPick,
+  type ExitPolicy,
   exitLevels,
   rankTokens,
   type ScoredToken,
@@ -35,7 +37,7 @@ import { riskProfiles, type HoldingPeriod, type RecommendationRequest, type Risk
 const args = process.argv.slice(2);
 const HISTORY_DAYS = Number(args.find((arg) => /^\d+$/.test(arg)) || 420);
 const OUT_FILE = args.find((arg) => arg.startsWith("--out="))?.slice("--out=".length);
-const VARIANTS_MODE = args.includes("--variants");
+const VARIANTS_GROUP = args.find((arg) => arg.startsWith("--variants"))?.split("=")[1] ?? (args.includes("--variants") ? "signals" : null);
 const HUBBLE_MODE = args.includes("--hubble");
 const FROM_DAY = args.find((arg) => arg.startsWith("--from="))?.slice("--from=".length);
 const SMART_MONEY = HUBBLE_MODE ? loadSmartMoney() : null;
@@ -52,7 +54,12 @@ const RANDOM_SAMPLES = 300;
 // 365-day horizons need more history than Horizon gives us cheaply; skip them.
 const HORIZONS: HoldingPeriod[] = ["3 days", "1 week", "1 month", "3 months", "6 months"];
 
-const VARIANTS: Record<string, ScoringOptions> = {
+interface Variant {
+  scoring: ScoringOptions;
+  exits?: ExitPolicy;
+}
+
+const SIGNAL_VARIANTS: Record<string, ScoringOptions> = {
   "current (momentum + trend)": DEFAULT_SCORING,
   "no price signals": { momentum: 0, trend: 0, lowVolatilityTilt: 0 },
   "trend only": { momentum: 0, trend: 1, lowVolatilityTilt: 0 },
@@ -68,6 +75,30 @@ const VARIANTS: Record<string, ScoringOptions> = {
   "smart money only": { momentum: 0, trend: 0, lowVolatilityTilt: 0, smartMoney: 3 },
   "smart money + quality": { momentum: 0, trend: 0, lowVolatilityTilt: 0, smartMoney: 2, qualityTilt: 2 },
   "fade smart money (sanity)": { momentum: 1, trend: 1, lowVolatilityTilt: 0, smartMoney: -3 }
+};
+
+const floor = (minMedianVolumeUsd: number, minAgeDays = 0): ScoringOptions => ({
+  ...DEFAULT_SCORING,
+  qualityFloor: { minMedianVolumeUsd, minAgeDays, profiles: ["medium", "high"] }
+});
+
+const VARIANT_GROUPS: Record<string, Record<string, Variant>> = {
+  signals: Object.fromEntries(Object.entries(SIGNAL_VARIANTS).map(([name, scoring]) => [name, { scoring }])),
+  quality: {
+    "no floor": { scoring: { ...DEFAULT_SCORING, qualityFloor: undefined } },
+    "median volume >= $5k/day": { scoring: floor(5_000) },
+    ">= $20k/day": { scoring: floor(20_000) },
+    ">= $50k/day": { scoring: floor(50_000) },
+    ">= $20k/day + 1 year old": { scoring: floor(20_000, 365) },
+    ">= $50k/day + 1 year old": { scoring: floor(50_000, 365) }
+  },
+  exits: {
+    "TP + SL (previous default)": { scoring: floor(20_000, 365), exits: { takeProfitMultiplier: 1, stopLoss: true } },
+    "SL only, no take profit (default)": { scoring: floor(20_000, 365), exits: DEFAULT_EXITS },
+    "TP x2 + SL": { scoring: floor(20_000, 365), exits: { takeProfitMultiplier: 2, stopLoss: true } },
+    "TP x3 + SL": { scoring: floor(20_000, 365), exits: { takeProfitMultiplier: 3, stopLoss: true } },
+    "no exits (hold)": { scoring: floor(20_000, 365), exits: { takeProfitMultiplier: null, stopLoss: false } }
+  }
 };
 
 interface Trade {
@@ -97,12 +128,12 @@ async function main() {
   console.log(`Universe: ${tokens.length} tokens (${tokens.map((t) => t.item.code || "XLM").join(", ")})`);
   console.log(`History: ${dates[0]} -> ${dates[lastIndex]}\n`);
 
-  if (VARIANTS_MODE) {
-    compareVariants(history);
+  if (VARIANTS_GROUP) {
+    compareVariants(history, VARIANTS_GROUP);
     return;
   }
 
-  const results = simulate(history, DEFAULT_SCORING);
+  const results = simulate(history, { scoring: DEFAULT_SCORING });
   for (const holdingPeriod of HORIZONS) {
     const rows = riskProfiles.map((profile) => summarize(profile, results[holdingPeriod][profile]));
     console.log(`=== Holding period: ${holdingPeriod} (${rows[0].n} entry dates) ===`);
@@ -131,14 +162,16 @@ async function main() {
   }
 }
 
-function compareVariants(history: History) {
+function compareVariants(history: History, group: string) {
+  const variants = VARIANT_GROUPS[group];
+  if (!variants) throw new Error(`Unknown variant group "${group}". Use: ${Object.keys(VARIANT_GROUPS).join(", ")}`);
   const lastIndex = history.dates.length - 1;
   const firstEntry = Math.max(30, FROM_DAY ? history.dates.indexOf(FROM_DAY) : 30);
   const cutoff = Math.floor((firstEntry + lastIndex) / 2);
   console.log(`Calibration: trades ending before ${history.dates[cutoff]} · Validation: trades starting on/after it\n`);
 
-  const rows = Object.entries(VARIANTS).map(([name, options]) => {
-    const trades = allTrades(simulate(history, options));
+  const rows = Object.entries(variants).map(([name, variant]) => {
+    const trades = allTrades(simulate(history, variant));
     const calibration = trades.filter((trade) => trade.endIndex < cutoff);
     const validation = trades.filter((trade) => history.dates.indexOf(trade.date) >= cutoff);
     return { name, calibration, validation };
@@ -158,33 +191,38 @@ function compareVariants(history: History) {
     }))
   );
 
-  console.log("Validation selection percentile by risk profile:");
-  console.table(
-    rows.map(({ name, validation }) => ({
-      variant: name,
-      ...Object.fromEntries(
-        riskProfiles.map((profile) => [
-          profile,
-          pct(mean(validation.filter((trade) => trade.profile === profile).map((trade) => trade.percentile)))
-        ])
-      )
-    }))
-  );
+  const byProfile = (trades: Trade[], profile: RiskProfile, field: "percentile" | "engine") =>
+    pct(mean(trades.filter((trade) => trade.profile === profile).map((trade) => trade[field])));
+  for (const [label, field] of [["selection percentile", "percentile"], ["return after costs", "engine"]] as const) {
+    console.log(`By risk profile — ${label} (calibration → validation):`);
+    console.table(
+      rows.map(({ name, calibration, validation }) => ({
+        variant: name,
+        ...Object.fromEntries(
+          riskProfiles.map((profile) => [profile, `${byProfile(calibration, profile, field)} → ${byProfile(validation, profile, field)}`])
+        )
+      }))
+    );
+  }
 
-  const chosen = rows.reduce((best, row) =>
-    mean(row.calibration.map((trade) => trade.percentile)) > mean(best.calibration.map((trade) => trade.percentile))
-      ? row
-      : best
-  );
+  // The choice only looks at calibration data. Quality floors are judged on the
+  // profiles they touch; exit policies on return; signals on selection skill.
+  const objective = (trades: Trade[]) => {
+    if (group === "quality") return mean(trades.filter((t) => t.profile !== "low").map((t) => t.percentile));
+    if (group === "exits") return mean(trades.map((t) => t.engine));
+    return mean(trades.map((t) => t.percentile));
+  };
+  const chosen = rows.reduce((best, row) => (objective(row.calibration) > objective(best.calibration) ? row : best));
   const baseline = rows[0];
+  const metric = group === "exits" ? "return" : group === "quality" ? "medium/high selection percentile" : "selection percentile";
   console.log(`Chosen on calibration data: "${chosen.name}"`);
   console.log(
-    `Validation selection percentile: ${pct(mean(chosen.validation.map((t) => t.percentile)))} ` +
-      `(current engine: ${pct(mean(baseline.validation.map((t) => t.percentile)))}, random = +50.0%)`
+    `Validation ${metric}: ${pct(objective(chosen.validation))} (baseline "${baseline.name}": ${pct(objective(baseline.validation))})`
   );
 }
 
-function simulate(history: History, options: ScoringOptions): Results {
+function simulate(history: History, variant: Variant): Results {
+  const options = variant.scoring;
   const { dates, xlmUsd, tokens } = history;
   const lastIndex = dates.length - 1;
   const rng = mulberry32(42);
@@ -236,7 +274,7 @@ function simulate(history: History, options: ScoringOptions): Results {
 
         const seriesOf = (assetId: string) => available.find((entry) => entry.series.assetId === assetId)!.series;
         const engineReturns = picks.map((pick) => {
-          const { takeProfit, stopLoss } = exitLevels(pick.token, request);
+          const { takeProfit, stopLoss } = exitLevels(pick.token, request, variant.exits);
           return withExits(seriesOf(pick.token.assetId), pick.token, t, hold, takeProfit, stopLoss);
         });
         const holdReturns = picks.map((pick) => holdReturn(seriesOf(pick.token.assetId), pick.token, t, hold));
@@ -305,12 +343,19 @@ function passesUniverseRules(metrics: TokenMetrics) {
 }
 
 // Return after costs, exiting at the first daily close beyond take-profit or stop-loss.
-function withExits(series: TokenSeries, token: TokenMetrics, t: number, hold: number, takeProfit: number, stopLoss: number) {
+function withExits(
+  series: TokenSeries,
+  token: TokenMetrics,
+  t: number,
+  hold: number,
+  takeProfit: number | null,
+  stopLoss: number | null
+) {
   const entry = series.closes[t]!;
   let exitDay = t + hold;
   for (let day = t + 1; day <= t + hold; day++) {
     const change = series.closes[day]! / entry - 1;
-    if (change >= takeProfit || change <= -stopLoss) {
+    if ((takeProfit !== null && change >= takeProfit) || (stopLoss !== null && change <= -stopLoss)) {
       exitDay = day;
       break;
     }
