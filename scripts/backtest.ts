@@ -1,6 +1,6 @@
 // Backtest of the Stellar recommendation engine on Horizon price history.
 //
-//   npm run backtest -- [days] [--variants] [--out=file.json]
+//   npm run backtest -- [days] [--variants] [--hubble] [--out=file.json]
 //
 // Every 7 days in the past, the engine ranks the universe using only the 31
 // days of data available on that date, picks 3 tokens per risk profile and
@@ -12,9 +12,13 @@
 // --variants compares scoring settings without peeking: the best setting is
 // chosen on the first half of history (trades that END before the cutoff) and
 // then judged only on the second half.
+//
+// --hubble uses the multi-year Hubble export (scripts/hubble-export.ts) and the
+// universe each date really had, instead of today's top tokens from Horizon.
 
 import { writeFileSync } from "node:fs";
-import { loadHistory, metricsAt, type TokenSeries } from "@/lib/recommendations/market";
+import { loadHubbleHistory } from "@/lib/recommendations/hubble";
+import { loadHistory, metricsAt, type TokenMetrics, type TokenSeries } from "@/lib/recommendations/market";
 import {
   DEFAULT_SCORING,
   duplicatesAPick,
@@ -31,6 +35,14 @@ const args = process.argv.slice(2);
 const HISTORY_DAYS = Number(args.find((arg) => /^\d+$/.test(arg)) || 420);
 const OUT_FILE = args.find((arg) => arg.startsWith("--out="))?.slice("--out=".length);
 const VARIANTS_MODE = args.includes("--variants");
+const HUBBLE_MODE = args.includes("--hubble");
+// Point-in-time universe rules for the Hubble history.
+const MIN_VOLUME_7D_USD = 10_000;
+const MIN_DERIVED_RATING = 5;
+const MIN_VOLATILITY = 0.1; // below this the asset is pegged to something
+const MAX_DAILY_JUMP = Math.log(5); // 5x in a day: manipulation or bad prints
+const STALE_DAYS = 14;
+const STALE_EXIT_HAIRCUT = 0.3;
 const STEP_DAYS = 7;
 const COMMISSION = COMMISSION_BPS / 10_000;
 const RANDOM_SAMPLES = 300;
@@ -44,10 +56,14 @@ const VARIANTS: Record<string, ScoringOptions> = {
   "fade 7d (reversal)": { momentum: -1, trend: 1, lowVolatilityTilt: 0 },
   "fade 7d + 30d": { momentum: -1, trend: -1, lowVolatilityTilt: 0 },
   "low volatility": { momentum: 0, trend: 0, lowVolatilityTilt: 1 },
-  "fade 7d + low vol": { momentum: -1, trend: 0, lowVolatilityTilt: 1 }
+  "fade 7d + low vol": { momentum: -1, trend: 0, lowVolatilityTilt: 1 },
+  "quality tilt": { momentum: 1, trend: 1, lowVolatilityTilt: 0, qualityTilt: 1 },
+  "strong quality tilt": { momentum: 1, trend: 1, lowVolatilityTilt: 0, qualityTilt: 2 },
+  "quality, no price signals": { momentum: 0, trend: 0, lowVolatilityTilt: 0, qualityTilt: 2 }
 };
 
 interface Trade {
+  profile: RiskProfile;
   date: string;
   endIndex: number;
   picks: string[];
@@ -61,12 +77,13 @@ interface Trade {
 }
 
 type History = Awaited<ReturnType<typeof loadHistory>>;
+type Entry = { series: TokenSeries; metrics: TokenMetrics };
 type Results = Record<string, Record<string, Trade[]>>;
 
 void main();
 
 async function main() {
-  const history = await loadHistory(HISTORY_DAYS);
+  const history = HUBBLE_MODE ? loadHubbleHistory() : await loadHistory(HISTORY_DAYS);
   const { dates, tokens } = history;
   const lastIndex = dates.length - 1;
   console.log(`Universe: ${tokens.length} tokens (${tokens.map((t) => t.item.code || "XLM").join(", ")})`);
@@ -132,6 +149,19 @@ function compareVariants(history: History) {
     }))
   );
 
+  console.log("Validation selection percentile by risk profile:");
+  console.table(
+    rows.map(({ name, validation }) => ({
+      variant: name,
+      ...Object.fromEntries(
+        riskProfiles.map((profile) => [
+          profile,
+          pct(mean(validation.filter((trade) => trade.profile === profile).map((trade) => trade.percentile)))
+        ])
+      )
+    }))
+  );
+
   const chosen = rows.reduce((best, row) =>
     mean(row.calibration.map((trade) => trade.percentile)) > mean(best.calibration.map((trade) => trade.percentile))
       ? row
@@ -150,6 +180,18 @@ function simulate(history: History, options: ScoringOptions): Results {
   const lastIndex = dates.length - 1;
   const rng = mulberry32(42);
   const results: Results = {};
+  const eligibleAt = new Map<number, Entry[]>();
+  const eligible = (t: number) => {
+    if (!eligibleAt.has(t)) {
+      eligibleAt.set(
+        t,
+        tokens
+          .map((series) => ({ series, metrics: metricsAt(series, t) }))
+          .filter((entry): entry is Entry => entry.metrics !== null && passesUniverseRules(entry.metrics))
+      );
+    }
+    return eligibleAt.get(t)!;
+  };
 
   for (const holdingPeriod of HORIZONS) {
     const hold = holdingDays[holdingPeriod];
@@ -161,12 +203,10 @@ function simulate(history: History, options: ScoringOptions): Results {
 
       for (let t = 30; t + hold <= lastIndex; t += STEP_DAYS) {
         // Only tokens the engine could have seen on day t and that still trade at t + hold.
-        const available = tokens
-          .map((series) => ({ series, metrics: metricsAt(series, t) }))
-          .filter((entry) => entry.metrics && entry.series.closes[t + hold]);
+        const available = eligible(t).filter((entry) => entry.series.closes[t + hold]);
         if (available.length < 4) continue;
 
-        const ranked = rankTokens(available.map((entry) => entry.metrics!), request, options);
+        const ranked = rankTokens(available.map((entry) => entry.metrics), request, options);
         const picks: ScoredToken[] = [];
         for (const candidate of ranked) {
           if (picks.length === 3) break;
@@ -176,10 +216,10 @@ function simulate(history: History, options: ScoringOptions): Results {
         const seriesOf = (assetId: string) => available.find((entry) => entry.series.assetId === assetId)!.series;
         const engineReturns = picks.map((pick) => {
           const { takeProfit, stopLoss } = exitLevels(pick.token, request);
-          return withExits(seriesOf(pick.token.assetId), t, hold, takeProfit, stopLoss);
+          return withExits(seriesOf(pick.token.assetId), pick.token, t, hold, takeProfit, stopLoss);
         });
-        const holdReturns = picks.map((pick) => holdReturn(seriesOf(pick.token.assetId), t, hold));
-        const universeReturns = available.map((entry) => holdReturn(entry.series, t, hold));
+        const holdReturns = picks.map((pick) => holdReturn(seriesOf(pick.token.assetId), pick.token, t, hold));
+        const universeReturns = available.map((entry) => holdReturn(entry.series, entry.metrics, t, hold));
 
         const engineHold = mean(holdReturns);
         let beaten = 0;
@@ -191,6 +231,7 @@ function simulate(history: History, options: ScoringOptions): Results {
         }
 
         trades.push({
+          profile: riskProfile,
           date: dates[t],
           endIndex: t + hold,
           picks: picks.map((pick) => pick.token.code),
@@ -230,27 +271,45 @@ function summarize(profile: RiskProfile | "ALL", trades: Trade[]) {
   };
 }
 
+function passesUniverseRules(metrics: TokenMetrics) {
+  if (!HUBBLE_MODE) return true; // Horizon mode already uses today's filtered universe
+  const closes = metrics.dailyCloses;
+  const maxJump = Math.max(...closes.slice(1).map((close, index) => Math.abs(Math.log(close / closes[index]))));
+  return (
+    metrics.volume7dUsd >= MIN_VOLUME_7D_USD &&
+    metrics.rating.average >= MIN_DERIVED_RATING &&
+    metrics.volatility >= MIN_VOLATILITY &&
+    maxJump < MAX_DAILY_JUMP
+  );
+}
+
 // Return after costs, exiting at the first daily close beyond take-profit or stop-loss.
-function withExits(series: TokenSeries, t: number, hold: number, takeProfit: number, stopLoss: number) {
+function withExits(series: TokenSeries, token: TokenMetrics, t: number, hold: number, takeProfit: number, stopLoss: number) {
   const entry = series.closes[t]!;
-  let exit = series.closes[t + hold]!;
+  let exitDay = t + hold;
   for (let day = t + 1; day <= t + hold; day++) {
     const change = series.closes[day]! / entry - 1;
     if (change >= takeProfit || change <= -stopLoss) {
-      exit = series.closes[day]!;
+      exitDay = day;
       break;
     }
   }
-  return exit / entry - 1 - roundTripCost(series);
+  return exitPrice(series, exitDay) / entry - 1 - roundTripCost(token);
 }
 
-function holdReturn(series: TokenSeries, t: number, hold: number) {
-  return series.closes[t + hold]! / series.closes[t]! - 1 - roundTripCost(series);
+function holdReturn(series: TokenSeries, token: TokenMetrics, t: number, hold: number) {
+  return exitPrice(series, t + hold) / series.closes[t]! - 1 - roundTripCost(token);
+}
+
+// A token nobody has traded for two weeks can't really be sold at its last print.
+function exitPrice(series: TokenSeries, day: number) {
+  const recentlyTraded = series.traded.slice(Math.max(0, day - STALE_DAYS + 1), day + 1).some(Boolean);
+  return series.closes[day]! * (recentlyTraded ? 1 : 1 - STALE_EXIT_HAIRCUT);
 }
 
 // Commission on entry plus an estimated spread on both legs, wider for thin markets.
-function roundTripCost(series: TokenSeries) {
-  const liquidity = series.item.rating?.liquidity ?? 0;
+function roundTripCost(token: TokenMetrics) {
+  const liquidity = token.rating.liquidity;
   const spread = liquidity >= 8 ? 0.002 : liquidity >= 5 ? 0.005 : 0.012;
   return COMMISSION + 2 * spread;
 }

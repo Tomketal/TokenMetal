@@ -16,7 +16,11 @@ const PAGE_DAYS = 180;
 // Fiat-pegged, stable and tokenized-yield assets are not "investments" for this
 // product; several of the yield ones also require issuer authorization.
 const EXCLUDED_CODES =
-  /USD|EUR|GBP|ZAR|ARS|BRL|MXN|NGN|KES|TRY|CHF|JPY|CETES|TESOURO|USTRY|USDY|GOLD|XAU|SLVR/i;
+  /USD|EUR|GBP|ZAR|ARS|BRL|MXN|NGN|KES|TRY|CHF|JPY|CNY|CNH|INR|PHP|IDR|VND|COP|CLP|PEN|UAH|RUB|KRW|AUD|CAD|SGD|HKD|THB|MYR|GHS|XOF|CETES|TESOURO|USTRY|USDY|GOLD|XAU|SLVR/i;
+
+export function isInvestableCode(code: string) {
+  return !EXCLUDED_CODES.test(code);
+}
 
 const MIN_VOLUME_7D_USD = 10_000;
 const MIN_RATING = 6.5;
@@ -65,6 +69,9 @@ export interface TokenSeries {
   // Horizon candles only cover the XLM pair; this scales them to the
   // all-markets weekly volume Stellar Expert reports today.
   volumeScale: number;
+  // Historical series (Hubble) have no Stellar Expert snapshot for past dates,
+  // so liquidity, maturity and age are derived from the market data itself.
+  pointInTime?: { firstTradeIndex: number };
 }
 
 let snapshot: { expiresAt: number; tokens: TokenMetrics[] } | null = null;
@@ -160,6 +167,7 @@ export function metricsAt(series: TokenSeries, endIndex: number, options: { live
 
   const { item } = series;
   const candleVolume7d = series.volumesUsd.slice(endIndex - 6, endIndex + 1).reduce((sum, value) => sum + value, 0);
+  const derived = series.pointInTime ? derivedProfile(series, startIndex, endIndex, tradeDays) : null;
 
   return {
     assetId: series.assetId,
@@ -168,14 +176,16 @@ export function metricsAt(series: TokenSeries, endIndex: number, options: { live
     domain: item.domain,
     priceUsd: options.liveVolume ? item.price ?? last : last,
     volume7dUsd: options.liveVolume ? (item.volume7d ?? 0) / 1e7 : candleVolume7d * series.volumeScale,
-    holders: item.trustlines?.funded ?? 0,
-    ageDays: item.created ? (Date.now() / 1000 - item.created) / 86_400 : 3_650,
-    rating: {
-      average: item.rating?.average ?? 0,
-      liquidity: item.rating?.liquidity ?? 0,
-      age: item.rating?.age ?? 0,
-      activity: item.rating?.activity ?? 0
-    },
+    holders: derived ? derived.holders : item.trustlines?.funded ?? 0,
+    ageDays: derived ? derived.ageDays : item.created ? (Date.now() / 1000 - item.created) / 86_400 : 3_650,
+    rating: derived
+      ? derived.rating
+      : {
+          average: item.rating?.average ?? 0,
+          liquidity: item.rating?.liquidity ?? 0,
+          age: item.rating?.age ?? 0,
+          activity: item.rating?.activity ?? 0
+        },
     dailyCloses: closes,
     tradeDays,
     return7d: last / closes[Math.max(0, closes.length - 8)] - 1,
@@ -183,6 +193,28 @@ export function metricsAt(series: TokenSeries, endIndex: number, options: { live
     volatility: Math.sqrt(variance) * Math.sqrt(365),
     maxDrawdown
   };
+}
+
+// Point-in-time stand-ins for Stellar Expert's rating, on the same 0-10 scale:
+// liquidity from median daily USD volume ($10k/day ~ 4, $1M/day ~ 8), age from
+// days since the first trade (3 years ~ 10), activity from days with trades.
+// Holder counts are not available historically; a neutral value is used.
+function derivedProfile(series: TokenSeries, startIndex: number, endIndex: number, tradeDays: number) {
+  const volumes = series.volumesUsd.slice(startIndex, endIndex + 1).sort((a, b) => a - b);
+  const medianVolume = volumes[Math.floor(volumes.length / 2)];
+  const liquidity = clampRating(2 * (Math.log10(medianVolume + 1) - 2));
+  const ageDays = endIndex - series.pointInTime!.firstTradeIndex;
+  const age = clampRating((ageDays / 1095) * 10);
+  const activity = clampRating((tradeDays / (endIndex - startIndex + 1)) * 10);
+  return {
+    holders: 20_000,
+    ageDays,
+    rating: { average: (liquidity + age + activity) / 3, liquidity, age, activity }
+  };
+}
+
+function clampRating(value: number) {
+  return Math.max(0, Math.min(10, Math.round(value * 10) / 10));
 }
 
 // USD value a buy of `amountUsdc` would receive right now on the mainnet DEX.

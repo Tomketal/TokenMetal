@@ -23,6 +23,7 @@ export interface ScoringOptions {
   momentum: number; // 7-day risk-adjusted return
   trend: number; // 30-day risk-adjusted return
   lowVolatilityTilt: number;
+  qualityTilt?: number; // favors liquid, long-lived tokens (Stellar Expert-style rating)
 }
 
 export const DEFAULT_SCORING: ScoringOptions = { momentum: 1, trend: 1, lowVolatilityTilt: 0 };
@@ -113,7 +114,11 @@ function scoreToken(token: TokenMetrics, request: RecommendationRequest, options
     token,
     riskScore,
     confidenceScore: boundedScore(riskFit * 0.5 + horizonFit * 0.3 + dataQuality * 0.2),
-    rankScore: riskFit * 1.6 + horizonFit + options.lowVolatilityTilt * (100 - volatilityRisk) * 0.5
+    rankScore:
+      riskFit * 1.6 +
+      horizonFit +
+      options.lowVolatilityTilt * (100 - volatilityRisk) * 0.5 +
+      (options.qualityTilt ?? 0) * token.rating.average * 5
   };
 }
 
