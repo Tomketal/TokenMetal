@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "backtest": "tsx scripts/backtest.ts"
+    "backtest": "tsx scripts/backtest.ts",
+    "dev:https": "next dev --experimental-https"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^2.7.1",

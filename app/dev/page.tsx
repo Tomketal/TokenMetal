@@ -123,7 +123,7 @@ export default function DevPage() {
     try {
       await task();
     } catch (error) {
-      say(`${label} failed: ${error instanceof Error ? error.message : String(error)}`);
+      say(`${label} failed: ${errorText(error)}`);
     } finally {
       setBusy(false);
       void refresh();
@@ -414,6 +414,13 @@ export default function DevPage() {
       </section>
     </main>
   );
+}
+
+// Wallets reject with plain objects like { code, message } rather than Errors.
+function errorText(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String((error as { message: unknown }).message);
+  return typeof error === "string" ? error : JSON.stringify(error);
 }
 
 function manualRecommendation(asset: string, symbol: string): TokenRecommendation {
