@@ -9,7 +9,7 @@ const painPoints = [
   "Research scattered across dashboards, posts, and group chats",
   "Influencer noise that makes conviction feel impossible",
   "Bad first trades caused by unclear sizing and rushed swaps",
-  "DeFi interfaces built for experts, not first-time investors"
+  "Crypto investing interfaces built for experts, not first-time investors"
 ];
 
 const threeSteps = [
@@ -21,30 +21,30 @@ const threeSteps = [
   {
     step: "02",
     title: "Get ranked options",
-    body: "Review three clear token recommendations with rationale from live Nansen signals."
+    body: "Review three clear picks with reasons based on expert market insights."
   },
   {
     step: "03",
     title: "Invest in one flow",
-    body: "Confirm sizing, sign once with your wallet, and execute through Horizon."
+    body: "Confirm the amount, approve once, and we handle the trade."
   }
 ];
 
 const demoFlow = [
-  "Connect wallet with Privy",
-  "Set risk, allocation, and horizon",
-  "Review ranked recommendations",
-  "Sign the trade",
-  "Monitor positions live"
+  "Sign in with email or Google",
+  "Set risk, amount, and how long you want to invest",
+  "Review today's picks",
+  "Confirm your purchase",
+  "Track your investments live"
 ];
 
 const trustSignals = [
-  "Nansen-powered liquidity, holder breadth, and smart-money flow",
-  "Wallet-signed transactions with user confirmation",
-  "Wallet-signed execution through Horizon",
-  "Live on Stellar mainnet",
-  "Privy wallet connection",
-  "Built for beginners entering Stellar DeFi"
+  "Expert insights: trading activity, popularity, and what top investors are buying",
+  "Every trade confirmed by you — no surprises",
+  "One-tap trades, fully in your control",
+  "Live and ready",
+  "Sign in with email, Google, or wallet",
+  "Built for first-time crypto investors"
 ];
 
 function LaunchButton({ variant = "primary" }: { variant?: "primary" | "secondary" }) {
@@ -89,11 +89,11 @@ export default function LandingPage() {
 
       <section className="hero-section" id="top">
         <div className="hero-copy">
-          <p className="eyebrow">Live on Stellar mainnet</p>
+          <p className="eyebrow">Live and ready</p>
           <h1>Stellar investing made easy.</h1>
           <p className="hero-lede">
-            Token Metal turns crypto investing into a guided three-step flow for beginner Stellar investors:
-            choose your profile, get ranked recommendations, and invest in one wallet-signed transaction.
+            Token Metal turns crypto investing into a guided three-step flow for beginners:
+            choose your profile, review today's picks, and invest with one confirmation.
           </p>
           <div className="hero-actions">
             <LaunchButton />
@@ -104,7 +104,7 @@ export default function LandingPage() {
           <div className="hero-stat-strip" aria-label="Token Metal summary">
             <span>Three inputs in</span>
             <strong>One confident trade out</strong>
-            <span>Nansen signals + Horizon execution</span>
+            <span>Expert insights + one-tap trades</span>
           </div>
         </div>
 
@@ -227,7 +227,7 @@ export default function LandingPage() {
         <div className="terminal-panel flow-panel">
           <div className="section-heading">
             <p className="eyebrow">Product demo flow</p>
-            <h2>From wallet connection to live position tracking.</h2>
+            <h2>From sign-in to live investment tracking.</h2>
           </div>
           <ol className="flow-list">
             {demoFlow.map((item, index) => (
@@ -243,7 +243,7 @@ export default function LandingPage() {
       <section className="content-band trust-band">
         <div className="section-heading narrow">
           <p className="eyebrow">Trust and data</p>
-          <h2>Guided recommendations powered by Nansen signals.</h2>
+          <h2>Guided picks powered by expert market data.</h2>
         </div>
         <div className="trust-grid">
           {trustSignals.map((signal) => (
@@ -260,7 +260,7 @@ export default function LandingPage() {
           <h2>Simple pricing for a simple first trade.</h2>
         </div>
         <p>
-          Token Metal charges a 2% convenience commission only on entry trades. No subscription. No exit fee.
+          Token Metal charges a 2% convenience fee only when you buy. No subscription. No fee when you sell.
         </p>
       </section>
 
@@ -279,7 +279,7 @@ export default function LandingPage() {
           <p>
             Tomás focuses on Web3 growth and distribution, with experience working with Base, Hedera,
             Algorand Foundation, and OKX. Token Metal brings that go-to-market lens into a product built
-            to help new users enter Stellar DeFi with more confidence.
+            to help new users start crypto investing with more confidence.
           </p>
           <a className="founder-link" href={founderXUrl} target="_blank" rel="noreferrer">
             <XIcon />
@@ -290,8 +290,8 @@ export default function LandingPage() {
 
       <section className="final-cta">
         <p className="eyebrow">Live MVP</p>
-        <h2>Ready for your first guided Stellar trade?</h2>
-        <p>Connect your wallet, set your profile, review three ranked options, and execute in one flow.</p>
+        <h2>Ready for your first guided investment?</h2>
+        <p>Sign in, set your profile, review three picks, and invest in one flow.</p>
         <LaunchButton />
       </section>
     </main>

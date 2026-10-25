@@ -13,13 +13,13 @@ function shortAddress(address: string) {
 }
 
 function getIdentityLabel(user: ReturnType<typeof usePrivy>["user"]) {
-  if (!user) return "Connected";
+  if (!user) return "Signed in";
   if (user.wallet?.address) return shortAddress(user.wallet.address);
   if (user.email?.address) return user.email.address;
   if (user.twitter?.username) return `@${user.twitter.username}`;
   if (user.google?.email) return user.google.email;
   if (user.phone?.number) return user.phone.number;
-  return "Connected";
+  return "Signed in";
 }
 
 export function PrivyLoginButton() {
@@ -31,7 +31,7 @@ export function PrivyLoginButton() {
         disabled
         title="Set NEXT_PUBLIC_PRIVY_APP_ID to enable Privy."
       >
-        Log In
+        Sign in
       </button>
     );
   }
@@ -77,10 +77,10 @@ function PrivyLoginButtonInner() {
   const label = useMemo(() => {
     if (connected) {
       const identity = walletConnected ? shortAddress(walletAddress) : getIdentityLabel(user);
-      return `Connected: ${identity}`;
+      return `Signed in: ${identity}`;
     }
     if (!ready) return "Loading...";
-    return "Log In";
+    return "Sign in";
   }, [connected, ready, user, walletAddress, walletConnected]);
 
   async function disconnectAll() {
@@ -122,14 +122,14 @@ function PrivyLoginButtonInner() {
           login();
         }}
         disabled={!ready && !connected}
-        title={connected ? "Connected. Click for options." : ready ? "Log in with Privy" : "Privy is loading"}
+        title={connected ? "Signed in. Click for options." : ready ? "Sign in" : "Loading..."}
       >
         {label}
       </button>
       {connected && menuOpen ? (
-        <div className="privy-wallet-menu" role="menu" aria-label="Connection options">
+        <div className="privy-wallet-menu" role="menu" aria-label="Account options">
           <button className="privy-wallet-menu-item" type="button" onClick={() => void disconnectAll()}>
-            Disconnect
+            Sign out
           </button>
         </div>
       ) : null}

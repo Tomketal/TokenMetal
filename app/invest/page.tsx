@@ -84,7 +84,7 @@ export default function Home() {
   const positionsStorageKey = owner ? `${positionsStoragePrefix}:${owner}` : "";
   const holdingIndex = Math.max(0, holdingPeriods.indexOf(holdingPeriod));
   const capitalPrecision = capitalSymbol === "SOL" ? 4 : 2;
-  const capitalDisplay = walletConnected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Connect Wallet";
+  const capitalDisplay = walletConnected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Sign in";
   const investAmount = useMemo(() => {
     const requested = (usdcBalance * allocationPercentage) / 100;
     if (capitalSymbol === "SOL") {
@@ -102,7 +102,7 @@ export default function Home() {
   );
   const canRequestOpportunities = walletConnected && busy !== "recommendations" && investAmount > 0;
   const needsUsdcFunding = walletConnected && capitalSymbol === "USDC" && investAmount <= 0;
-  const fundingBlockerMessage = "Insufficient funds. Deposit USDC to your wallet to get opportunities, and keep a small XLM balance for network fees.";
+  const fundingBlockerMessage = "Insufficient funds. Add USDC to your account to see today's picks.";
 
   const persistPositions = useCallback((next: PositionBuckets) => {
     if (!positionsStorageKey) return;
@@ -405,7 +405,7 @@ export default function Home() {
 
     try {
       if (tradeEngine !== "jupiter") {
-        throw new Error("TP/SL trigger orders are currently supported only on the Horizon engine.");
+        throw new Error("Target profit and safety limits are not available for this type of pick.");
       }
 
       const challengeType = resolveTriggerChallengeType();
@@ -481,7 +481,7 @@ export default function Home() {
     setError("");
 
     if (tradeEngine !== "jupiter") {
-      setError("TP/SL trigger orders are currently supported only on the Horizon engine.");
+      setError("Target profit and safety limits are not available for this type of pick.");
       return;
     }
 
@@ -702,11 +702,11 @@ export default function Home() {
       return bytesToBase64(signed.signedTransaction);
     }
 
-    throw new Error("Connect a Stellar wallet that can sign transactions.");
+    throw new Error("Finish signing in to confirm purchases.");
   }
 
   async function sendSandboxSignature(label: string) {
-    if (!owner) throw new Error("Log in and connect a Stellar wallet first.");
+    if (!owner) throw new Error("Sign in first.");
 
     const ownerPubkey = new PublicKey(owner);
 
@@ -728,7 +728,7 @@ export default function Home() {
     }
 
     if (!privyConnectedSolanaWallet) {
-      throw new Error("Connect your Stellar wallet in Privy first.");
+      throw new Error("Sign in first.");
     }
 
     const unsignedTransaction = transaction.serialize({
@@ -837,7 +837,7 @@ export default function Home() {
                   priority
                 />
               </div>
-              <span>The beginner-friendly Stellar investment dApp | Powered by La Familia</span>
+              <span>The beginner-friendly Stellar investment app | Powered by La Familia</span>
             </div>
             <div className="wallet-dock">
               <PrivyLoginButton />
@@ -857,7 +857,7 @@ export default function Home() {
                     <strong>{investDisplay}</strong>
                   </div>
                   <div className="balance-chip">
-                    <span>Open PnL</span>
+                    <span>Open P/L</span>
                     <strong>{formatCapitalValue(openPnL, capitalSymbol, "pnl")}</strong>
                   </div>
                   <div className="balance-chip">
@@ -899,7 +899,7 @@ export default function Home() {
                   </div>
                   <label className="fader-control">
                     <input
-                      aria-label="Wallet capital to invest"
+                      aria-label="Amount to invest"
                       type="range"
                       min={5}
                       max={100}
@@ -961,8 +961,8 @@ export default function Home() {
               {!walletConnected ? (
                 <p className="console-note">
                   {signedInWithoutWallet
-                    ? "Signed in. Link a Stellar wallet in Privy to load your balance."
-                    : "Log in and connect your Stellar wallet to unlock opportunities."}
+                    ? "Signed in. Finish setting up your account to see your balance."
+                    : "Sign in to see today's picks."}
                 </p>
               ) : needsUsdcFunding ? (
                 <p className="console-note">{fundingBlockerMessage}</p>
@@ -975,12 +975,12 @@ export default function Home() {
             <section className="op-shell panel-shell">
               <section className="screen opportunities-screen">
                 <div className="screen-title">
-                  <h2>{preparedTrade ? "Trade review" : "Nansen opportunities"}</h2>
+                  <h2>{preparedTrade ? "Review your purchase" : "Today's picks"}</h2>
                   <div className="screen-actions">
                     <span>{preparedTrade ? preparedTrade.recommendation.tokenSymbol : recommendations.length ? "live feed" : "waiting"}</span>
                     <div className="engine-mini-screen">
-                      <span>Engine</span>
-                      <strong>{tradeEngine === "raydium-devnet" ? "Raydium Devnet" : "Horizon"}</strong>
+                      <span>Mode</span>
+                      <strong>{tradeEngine === "raydium-devnet" ? "Test" : "Live"}</strong>
                     </div>
                     {preparedTrade ? (
                       <button className="back-button" onClick={() => setPreparedTrade(null)}>Back</button>
@@ -1004,9 +1004,9 @@ export default function Home() {
                             <Metric label="Downside" value={`${preparedTrade.recommendation.estimatedDownside} / ${formatCapitalValue(preparedTrade.expectedLossUsd, capitalSymbol, "pnl")}`} />
                           </div>
                           {tradeEngine === "raydium-devnet" ? (
-                            <p className="rationale">Wallet signs a real Raydium devnet CPMM swap transaction into {executableSymbol}. Position is labeled with this Nansen card for UX testing.</p>
+                            <p className="rationale">Test mode: a real test trade into {executableSymbol}. Position is labeled with this pick for UX testing.</p>
                           ) : (
-                            <p className="rationale">{dryRun && sandboxSigning ? "Your wallet signs a harmless devnet transaction, then a sandbox position is created." : dryRun ? "Sandbox position will be created without wallet trade signing." : "Wallet signs the Horizon market buy transaction."}</p>
+                            <p className="rationale">{dryRun && sandboxSigning ? "You approve a harmless test transaction, then a practice position is created." : dryRun ? "A practice position will be created without any trade." : "One tap to confirm your purchase."}</p>
                           )}
                         </article>
 
@@ -1041,9 +1041,9 @@ export default function Home() {
                         {recommendations.length ? (
                           <div className="op-summary">
                             {tradeEngine === "raydium-devnet" ? (
-                              <span>Devnet execution: Raydium XLM to {executableSymbol}. Positions are labeled with the selected Nansen card for UX testing.</span>
+                              <span>Test mode trade into {executableSymbol}. Positions are labeled with the selected pick for UX testing.</span>
                             ) : (
-                              <span>Recommendations are ranked from live Nansen Stellar signals, then matched to your selected profile.</span>
+                              <span>Picks ranked by expert market data and matched to your profile.</span>
                             )}
                             <span>Profile: {riskProfile} risk / {holdingPeriod}. Signals include liquidity, activity, holder breadth, and smart-money flow.</span>
                           </div>
@@ -1115,10 +1115,10 @@ export default function Home() {
                 {tradeEngine === "raydium-devnet"
                   ? "Raydium devnet mode signs a real wallet transaction against a configured Raydium CPMM pool."
                   : dryRun && sandboxSigning
-                  ? "The app will call Nansen and ask your wallet to sign a harmless devnet transaction before creating sandbox positions. No token swap is executed."
+                  ? "The app will fetch picks and ask you to approve a harmless test transaction before creating practice positions. No real trade happens."
                   : dryRun
-                    ? "The app will call Nansen and create sandbox positions, but it will not request a Horizon transaction or wallet trade signature."
-                  : "Wallet connection, balance reads, Nansen recommendations, review screens, and position UI can be tested here."}
+                    ? "The app will fetch picks and create practice positions. No real trade or confirmation needed."
+                  : "Sign-in, balance, picks, review screens, and investment tracking can all be tested here."}
               </p>
             </section>
           ) : null}
@@ -1177,8 +1177,8 @@ export default function Home() {
               <div className="position-details-field"><span>Entry Price</span><strong>{formatCapitalValue(inspectedPosition.entryPrice, capitalSymbol, "price")}</strong></div>
               <div className="position-details-field"><span>Current Price</span><strong>{formatCapitalValue(inspectedPosition.currentPrice, capitalSymbol, "price")}</strong></div>
               <div className="position-details-field"><span>Current Value</span><strong>{formatCapitalValue(inspectedPosition.currentValueUsd, capitalSymbol, "pnl")}</strong></div>
-              <div className="position-details-field"><span>PnL ({capitalSymbol})</span><strong className={(inspectedPosition.pnlUsd || 0) >= 0 ? "positive" : "negative"}>{formatCapitalValue(inspectedPosition.pnlUsd, capitalSymbol, "pnl")}</strong></div>
-              <div className="position-details-field"><span>PnL %</span><strong className={(inspectedPosition.pnlUsd || 0) >= 0 ? "positive" : "negative"}>{pct(inspectedPosition.pnlPercent)}</strong></div>
+              <div className="position-details-field"><span>P/L ({capitalSymbol})</span><strong className={(inspectedPosition.pnlUsd || 0) >= 0 ? "positive" : "negative"}>{formatCapitalValue(inspectedPosition.pnlUsd, capitalSymbol, "pnl")}</strong></div>
+              <div className="position-details-field"><span>P/L %</span><strong className={(inspectedPosition.pnlUsd || 0) >= 0 ? "positive" : "negative"}>{pct(inspectedPosition.pnlPercent)}</strong></div>
               <div className="position-details-field"><span>Token Amount (UI)</span><strong>{new Intl.NumberFormat("en-US", { maximumFractionDigits: 8 }).format(inspectedPosition.tokenAmountUi)}</strong></div>
               <div className="position-details-field"><span>Take Profit</span><strong>{inspectedPosition.takeProfit}</strong></div>
               <div className="position-details-field"><span>Stop Loss</span><strong>{inspectedPosition.stopLoss}</strong></div>
@@ -1380,8 +1380,8 @@ function PositionRow({
       <strong>{position.tokenSymbol}<br /><span>{position.status}</span></strong>
       <div><span>Entry {valueLabel}</span><br />{formatCompactCapitalValue(position.entryPrice, capitalSymbol, "price")}</div>
       <div><span>Current {valueLabel}</span><br />{formatCompactCapitalValue(position.currentPrice, capitalSymbol, "price")}</div>
-      <div className={pnlClass}><span>PnL {valueLabel}</span><br />{formatCompactCapitalValue(position.pnlUsd, capitalSymbol, "pnl")}</div>
-      <div className={pnlClass}><span>PnL %</span><br />{pct(position.pnlPercent)}</div>
+      <div className={pnlClass}><span>P/L {valueLabel}</span><br />{formatCompactCapitalValue(position.pnlUsd, capitalSymbol, "pnl")}</div>
+      <div className={pnlClass}><span>P/L %</span><br />{pct(position.pnlPercent)}</div>
       <div><span>TP / SL</span><br />{position.takeProfit} / {position.stopLoss}</div>
       <div>
         <span>TP/SL Order</span>
