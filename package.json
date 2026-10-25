@@ -7,20 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "backtest": "tsx scripts/backtest.ts",
+    "dev:https": "next dev --experimental-https"
   },
   "dependencies": {
-    "@privy-io/react-auth": "^3.22.2",
-    "@raydium-io/raydium-sdk-v2": "^0.2.41-alpha",
-    "@solana-program/memo": "^0.10.0",
-    "@solana/spl-token": "^0.4.13",
-    "@solana/wallet-adapter-base": "^0.9.27",
-    "@solana/wallet-adapter-phantom": "^0.9.28",
-    "@solana/wallet-adapter-react": "^0.15.39",
-    "@solana/wallet-adapter-react-ui": "^0.9.39",
-    "@solana/wallet-adapter-solflare": "^0.6.32",
-    "@solana/web3.js": "^1.98.4",
-    "bn.js": "^5.2.3",
+    "@creit.tech/stellar-wallets-kit": "^2.7.1",
+    "@stellar/stellar-sdk": "^17.4.0",
     "decimal.js": "^10.6.0",
     "next": "^16.0.0",
     "react": "^19.2.0",
@@ -29,12 +22,13 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
-    "@types/bn.js": "^5.2.0",
+    "@google-cloud/bigquery": "^8.3.1",
     "@types/node": "^24.9.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "eslint": "^9.38.0",
     "eslint-config-next": "^16.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }

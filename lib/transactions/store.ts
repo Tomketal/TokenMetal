@@ -203,9 +203,7 @@ export async function recordExitTransaction(
   );
   const occurredAt = closedPosition.closedAt || new Date().toISOString();
   const closeOutputMint =
-    appConfig.tradeEngine === "raydium-devnet"
-      ? appConfig.raydiumDevnetInputMint || appConfig.usdcMint
-      : appConfig.usdcMint;
+    appConfig.usdcAsset;
 
   withDatabase((db) => {
     insertTransaction(db, {
@@ -259,7 +257,7 @@ export async function syncTransactionsFromPositions(positions: Position[]) {
             position.tokenName,
             position.tokenSymbol,
             position.mintAddress,
-            appConfig.usdcMint,
+            appConfig.usdcAsset,
             position.mintAddress,
             toRawAmount(position.entryUsdc, appConfig.usdcDecimals),
             position.entryUsdc,
@@ -298,9 +296,7 @@ export async function syncTransactionsFromPositions(positions: Position[]) {
             position.entryUsdc > 0 ? (pnlUsdc / position.entryUsdc) * 100 : 0
           );
           const closeOutputMint =
-            appConfig.tradeEngine === "raydium-devnet"
-              ? appConfig.raydiumDevnetInputMint || appConfig.usdcMint
-              : appConfig.usdcMint;
+            appConfig.usdcAsset;
 
           insertStatement.run(
             `legacy-close-${position.closeSignature}`,

@@ -25,7 +25,6 @@ export async function createPosition(preparedTrade: PreparedTrade, signature: st
     (position) =>
       position.owner === preparedTrade.owner &&
       position.mintAddress === preparedTrade.outputMint &&
-      (appConfig.tradeEngine !== "raydium-devnet" || position.tokenSymbol === preparedTrade.recommendation.tokenSymbol) &&
       position.status === "open"
   );
 
@@ -40,7 +39,7 @@ export async function createPosition(preparedTrade: PreparedTrade, signature: st
     tokenName: preparedTrade.recommendation.tokenName,
     tokenSymbol: preparedTrade.recommendation.tokenSymbol,
     mintAddress: preparedTrade.outputMint,
-    tokenDecimals: preparedTrade.recommendation.tokenDecimals ?? 6,
+    tokenDecimals: preparedTrade.recommendation.tokenDecimals ?? 7,
     tokenAmountRaw: preparedTrade.expectedTokenAmountRaw,
     tokenAmountUi: preparedTrade.expectedTokenAmountUi,
     entryUsdc: preparedTrade.amountUsdc,

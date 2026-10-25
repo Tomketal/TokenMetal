@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
-import { appConfig, hasWriteEnabledRpcForLiveTrading, shouldUseSandboxTrading } from "@/lib/config";
+import { isCommissionEnabled } from "@/lib/commission";
+import { appConfig, shouldUseSandboxTrading } from "@/lib/config";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const writeEnabledRpc = hasWriteEnabledRpcForLiveTrading();
   const sandboxTrading = shouldUseSandboxTrading();
 
   return NextResponse.json({
     dryRun: appConfig.dryRun,
     sandboxTrading,
     liveTradingEnabled: !sandboxTrading,
-    sandboxSigning: process.env.NEXT_PUBLIC_SANDBOX_SIGNING === "true",
-    writeEnabledRpc
+    network: appConfig.stellarNetwork,
+    engine: appConfig.tradeEngine,
+    usdcAsset: appConfig.usdcAsset,
+    commissionEnabled: isCommissionEnabled(),
+    minLiveTradeUsdc: appConfig.minLiveTradeUsdc
   });
 }
