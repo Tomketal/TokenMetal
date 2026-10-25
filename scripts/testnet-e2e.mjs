@@ -101,16 +101,16 @@ async function run() {
 
   // 2. Buy 10 USDC of TMTL.
   const { preparedTrade } = await api("POST", "/api/trade", { action: "prepare", owner, amountUsdc: 10, recommendation });
-  check(preparedTrade.commissionUsdc === 0.05, `quote charges 0.05 USDC commission (${preparedTrade.commissionUsdc})`);
+  check(preparedTrade.commissionUsdc === 0.2, `quote charges 0.2 USDC (2%) commission (${preparedTrade.commissionUsdc})`);
   check(preparedTrade.quoteResponse.addsTrustline === true, "buy adds the TMTL trustline");
   const buy = await api("POST", "/api/tx/broadcast", { signedTransaction: sign(preparedTrade.swapTransaction, user) });
   console.log(`  buy tx ${buy.signature}`);
   const { position } = await api("POST", "/api/trade", { action: "confirm", owner, signature: buy.signature, preparedTrade });
-  check(Math.abs(position.tokenAmountUi - 99.5) < 0.001, `position holds 99.5 TMTL (${position.tokenAmountUi})`);
+  check(Math.abs(position.tokenAmountUi - 98) < 0.001, `position holds 98 TMTL (${position.tokenAmountUi})`);
 
   const afterBuy = await api("GET", `/api/wallet/balance?owner=${owner}`);
   check(Math.abs(afterBuy.balance - 90) < 1e-6, `user has 90 USDC after buying (${afterBuy.balance})`);
-  check(await usdcBalanceOf(state.treasuryPublic, state.usdcAsset) === 0.05, "treasury received 0.05 USDC");
+  check(await usdcBalanceOf(state.treasuryPublic, state.usdcAsset) === 0.2, "treasury received 0.2 USDC");
 
   // 3. Live PnL marks the position against the bid side.
   const listed = await api("GET", `/api/positions?owner=${owner}`);
@@ -123,7 +123,7 @@ async function run() {
   const sell = await api("POST", "/api/tx/broadcast", { signedTransaction: sign(closeTrade.swapTransaction, user) });
   console.log(`  close tx ${sell.signature}`);
   const closed = await api("POST", "/api/positions/close", { action: "confirm", owner, positionId: position.id, signature: sell.signature });
-  const expectedExit = 99.5 / 11;
+  const expectedExit = 98 / 11;
   check(closed.position.status === "closed", "position is closed");
   check(Math.abs(closed.position.currentValueUsd - expectedExit) < 0.001, `exit value is ${expectedExit.toFixed(4)} USDC (${closed.position.currentValueUsd})`);
   check(Math.abs(closed.position.pnlUsd - (expectedExit - 10)) < 0.001, `realized PnL ${closed.position.pnlUsd.toFixed(4)} USDC`);

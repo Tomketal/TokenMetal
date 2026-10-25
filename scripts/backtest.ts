@@ -7,18 +7,19 @@
 // holding period, and holds them. Results are compared with:
 //   - XLM: put the same money in XLM for the same period
 //   - Random: 3 tokens drawn at random from the same universe on that date
-// All strategies pay the same 0.5% commission plus a spread estimate.
+// All strategies pay the same 2% entry commission plus a spread estimate.
 
 import { writeFileSync } from "node:fs";
 import { loadHistory, metricsAt, type TokenSeries } from "@/lib/recommendations/market";
 import { duplicatesAPick, exitLevels, rankTokens, type ScoredToken } from "@/lib/recommendations/stellar";
+import { COMMISSION_BPS } from "@/lib/commission";
 import { holdingDays } from "@/lib/recommendations/scoring";
 import { riskProfiles, type HoldingPeriod, type RecommendationRequest, type RiskProfile } from "@/lib/types";
 
 const HISTORY_DAYS = Number(process.argv[2] || 420);
 const OUT_FILE = process.argv[3];
 const STEP_DAYS = 7;
-const COMMISSION = 0.005;
+const COMMISSION = COMMISSION_BPS / 10_000;
 const RANDOM_SAMPLES = 300;
 // 365-day horizons need more history than Horizon gives us cheaply; skip them.
 const HORIZONS: HoldingPeriod[] = ["3 days", "1 week", "1 month", "3 months", "6 months"];

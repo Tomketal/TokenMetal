@@ -8,7 +8,7 @@ Token Letal (Token Metal) is a full-stack Stellar dApp for simple investing. It 
 - Wallet: Stellar Wallets Kit (Freighter, xBull, Lobstr, Albedo, ...) in `app/providers.tsx`
 - Stellar helpers: `lib/stellar` (network, assets, Horizon)
 - Recommendations: `lib/recommendations`
-- Trading: `lib/trading/sdex.ts` (path payments on the Stellar DEX, 0.5% fee as an extra payment op)
+- Trading: `lib/trading/sdex.ts` (path payments on the Stellar DEX, 2% fee as an extra payment op)
 - Positions: `lib/positions`
 - API routes mirror product engines:
   - `POST /api/recommendations`

@@ -59,7 +59,7 @@ export function duplicatesAPick(picks: ScoredToken[], candidate: ScoredToken) {
 }
 
 // Stops scale with the volatility expected over the holding period; cautious
-// profiles get tighter stops (capped at ~13% for "very low"), aggressive ones
+// profiles get tighter stops (capped at ~15% for "low"), aggressive ones
 // a wider reward-to-risk. Returned as fractions (0.1 = 10%).
 export function exitLevels(token: TokenMetrics, request: RecommendationRequest) {
   const targetRisk = riskTargets[request.riskProfile];

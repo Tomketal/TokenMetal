@@ -1,14 +1,14 @@
 /**
  * Commission system for Token Metal.
  *
- * 0.5% fee on entry only. On Stellar it is an extra USDC `payment` operation
+ * 2% fee on entry only. On Stellar it is an extra USDC `payment` operation
  * to the treasury inside the same transaction as the swap, so it is atomic:
  * either the swap and the fee both happen, or neither does.
  */
 
 import { StrKey } from "@stellar/stellar-sdk";
 
-export const COMMISSION_BPS = 50; // 0.50% (1 bps = 0.01%)
+export const COMMISSION_BPS = 200; // 2% (1 bps = 0.01%)
 
 /**
  * Stellar account (G...) that receives the platform fee.

@@ -214,7 +214,7 @@ export default function DevPage() {
       <h1 style={styles.heading}>Token Metal · protocol dev bench</h1>
       <p style={styles.muted}>
         Network: <b>{network}</b> · Mode: <b>{status ? (status.sandboxTrading ? "sandbox (dry-run)" : "LIVE") : "…"}</b> ·
-        Commission: <b>{status?.commissionEnabled ? "on (0.5%)" : "off"}</b>
+        Commission: <b>{status?.commissionEnabled ? "on (2%)" : "off"}</b>
       </p>
 
       <section style={styles.card}>

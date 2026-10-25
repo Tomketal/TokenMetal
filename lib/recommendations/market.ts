@@ -223,11 +223,13 @@ async function fetchDailySeries(base: Asset, counter: Asset, start: number, end:
   const byDay = new Map<number, { close: number; open: number; counterVolume: number }>();
   for (let pageStart = start; pageStart < end; pageStart += PAGE_DAYS * DAY_MS) {
     const pageEnd = Math.min(end, pageStart + PAGE_DAYS * DAY_MS);
-    const response = await marketHorizon()
-      .tradeAggregation(base, counter, pageStart, pageEnd, DAY_MS, 0)
-      .limit(PAGE_DAYS + 2)
-      .order("asc")
-      .call();
+    const response = await withRetry(() =>
+      marketHorizon()
+        .tradeAggregation(base, counter, pageStart, pageEnd, DAY_MS, 0)
+        .limit(PAGE_DAYS + 2)
+        .order("asc")
+        .call()
+    );
     for (const record of response.records) {
       byDay.set(Number(record.timestamp), {
         close: Number(record.close),
@@ -250,6 +252,20 @@ async function fetchDailySeries(base: Asset, counter: Asset, start: number, end:
   }
 
   return { closes, counterVolumes, traded, tradeDays: byDay.size };
+}
+
+// Public Horizon occasionally answers 503/429 under load; back off and retry.
+async function withRetry<T>(task: () => Promise<T>, attempts = 4): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await task();
+    } catch (error) {
+      const status = (error as { response?: { status?: number } }).response?.status;
+      const retryable = status === undefined || status === 429 || status >= 500;
+      if (!retryable || attempt >= attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
 }
 
 function scaleFor(item: ExpertAsset, volumesUsd: number[]) {

@@ -102,7 +102,7 @@ Note: Privy's X login is configured as `twitter` in the React SDK config.
 
 ## Commission Setup
 
-Token Letal uses Jupiter's native platform-fee mechanism to collect a 0.5% fee on entry trades.
+Token Letal uses Jupiter's native platform-fee mechanism to collect a 2% fee on entry trades.
 
 One-time setup required before the first real mainnet trade:
 
@@ -156,7 +156,7 @@ This creates the treasury wallet's USDC Associated Token Account (ATA), which Ju
 - Recommendations are not mocked. Missing Nansen credentials return a configuration error.
 - The Nansen Agent Fast adapter expects JSON output, but the parser also accepts common wrappers like `recommendations`, `data`, `result`, `response`, `output`, and fenced JSON text.
 - Trade execution uses real Jupiter swap transactions and wallet signing.
-- A 0.5% platform fee is collected on every trade entry via Jupiter's native platform-fee mechanism. Fees are sent to the treasury USDC ATA automatically within the swap transaction. The fee is shown transparently in the trade review UI. No fee is charged on close. Fee collection is disabled in dry-run mode.
+- A 2% platform fee is collected on every trade entry via Jupiter's native platform-fee mechanism. Fees are sent to the treasury USDC ATA automatically within the swap transaction. The fee is shown transparently in the trade review UI. No fee is charged on close. Fee collection is disabled in dry-run mode.
 - Position tracking is local-first and stores data in `data/positions.json`.
 - Transaction tracking uses local SQLite in `data/transactions.db` and records every buy/sell signature, amounts, fees, and realized PnL.
 - One active position per token per wallet is enforced for MVP.

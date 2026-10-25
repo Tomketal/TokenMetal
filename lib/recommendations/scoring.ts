@@ -2,14 +2,12 @@ import type { HoldingPeriod, RiskProfile } from "@/lib/types";
 
 // Profile tables that translate the user's three inputs into scoring targets.
 
+// Targets sit where Stellar's liquid tokens actually cluster: XLM/XRP-like
+// majors (~20), mid-caps such as SHX (~45), small caps such as XXA (~75).
 export const riskTargets: Record<RiskProfile, number> = {
-  "very low": 15,
-  low: 28,
-  "medium low": 40,
-  medium: 52,
-  "medium high": 65,
-  high: 78,
-  "very high": 90
+  low: 20,
+  medium: 45,
+  high: 75
 };
 
 // Short horizons reward recent momentum and trading activity...
