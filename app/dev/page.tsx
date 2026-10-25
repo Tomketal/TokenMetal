@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { useStellarWallet } from "@/app/providers";
+import { suggestedAllocation } from "@/lib/recommendations/scoring";
 import { explorerTxUrl } from "@/lib/stellar/network";
 import {
   holdingPeriods,
@@ -56,7 +57,7 @@ export default function DevPage() {
   const [symbol, setSymbol] = useState(MAINNET_PRESETS[1].symbol);
   const [amount, setAmount] = useState("1");
   const [riskProfile, setRiskProfile] = useState<RiskProfile>("medium");
-  const [allocation, setAllocation] = useState(25);
+  const [allocation, setAllocation] = useState(suggestedAllocation.medium);
   const [holdingPeriod, setHoldingPeriod] = useState<HoldingPeriod>("1 month");
   const [recommendations, setRecommendations] = useState<TokenRecommendation[]>([]);
   const [prepared, setPrepared] = useState<PreparedTrade | null>(null);
@@ -244,7 +245,14 @@ export default function DevPage() {
         <div style={styles.row}>
           <label>
             Risk profile{" "}
-            <select value={riskProfile} onChange={(e) => setRiskProfile(e.target.value as RiskProfile)}>
+            <select
+              value={riskProfile}
+              onChange={(e) => {
+                const profile = e.target.value as RiskProfile;
+                setRiskProfile(profile);
+                setAllocation(suggestedAllocation[profile]);
+              }}
+            >
               {riskProfiles.map((profile) => (
                 <option key={profile}>{profile}</option>
               ))}
@@ -271,7 +279,7 @@ export default function DevPage() {
           </label>
         </div>
         <p style={styles.muted}>
-          Amount to invest: <b>{investAmount} USDC</b>
+          Suggested for {riskProfile}: {suggestedAllocation[riskProfile]}% · Amount to invest: <b>{investAmount} USDC</b>
           {!(balance && balance.balance > 0) && " (no USDC balance; using the USDC field below)"}
         </p>
         <button disabled={busy} onClick={getRecommendations}>

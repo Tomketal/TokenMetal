@@ -10,6 +10,15 @@ export const riskTargets: Record<RiskProfile, number> = {
   high: 75
 };
 
+// Suggested share of the user's USDC to invest. On Stellar the healthy tokens
+// cluster at low-to-medium risk, so "high" mostly differs in how much is put to
+// work and how much room its stop loss gives (see exitLevels), not in picks.
+export const suggestedAllocation: Record<RiskProfile, number> = {
+  low: 20,
+  medium: 35,
+  high: 50
+};
+
 // Short horizons reward recent momentum and trading activity...
 export const holdingVolumeWeight: Record<HoldingPeriod, number> = {
   "3 days": 1.55,
