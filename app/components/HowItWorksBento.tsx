@@ -286,11 +286,25 @@ function CapitalDemo() {
   );
 }
 
+// Real product screenshot — replaces the hand-rolled stacked-area chart.
+// The user explicitly asked for the real app view instead of an illustration.
+function CapitalShot() {
+  return (
+    <div className="bento-demo bento-demo-capital-shot">
+      <img
+        src="/screenshots/video-frames/frame-15-t157s.png"
+        alt="TokenMetal — real app showing today's picks, positions, and USDC balance"
+        loading="lazy"
+      />
+    </div>
+  );
+}
+
 const demos: Record<BentoStep["kind"], React.ReactNode> = {
   gauge: <GaugeDemo />,
   growth: <GrowthDemo />,
   picks: <PicksDemo />,
-  capital: <CapitalDemo />
+  capital: <CapitalShot />
 };
 
 export default function HowItWorksBento() {

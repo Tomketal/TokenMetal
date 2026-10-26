@@ -66,6 +66,27 @@
       linear-gradient(165deg, #0a0d0f 0%, #000 100%);
     justify-content: space-between;
   }
+  .cover-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; align-items: center; flex: 1; min-height: 0; overflow: hidden; }
+  .cover-copy { min-width: 0; }
+  .cover-preview {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+    min-height: 0;
+  }
+  .cover-preview img {
+    max-height: 100%;
+    width: auto;
+    max-width: 260px;
+    aspect-ratio: 390 / 720;
+    object-fit: cover; object-position: top;
+    border-radius: 28px;
+    border: 8px solid #1b2026;
+    box-shadow:
+      0 32px 60px rgba(0,0,0,0.6),
+      0 0 0 1px rgba(132,243,190,0.08),
+      0 0 60px -20px rgba(132,243,190,0.3);
+  }
   .cover .brand-row { display: flex; align-items: center; gap: 14px; }
   .cover .mark {
     width: 52px; height: 52px; border-radius: 13px;
@@ -75,8 +96,8 @@
   }
   .cover .brand-row span { font-family: var(--font-display); font-weight: 800; font-size: 20px; }
   .cover .meta { font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: 0.16em; }
-  .cover h1 { font-size: 136px; }
-  .cover .tag { margin-top: 20px; font-size: 26px; color: var(--ink-dim); max-width: 920px; font-weight: 500; line-height: 1.3; }
+  .cover h1 { font-size: 92px; line-height: 0.98; }
+  .cover .tag { margin-top: 16px; font-size: 20px; color: var(--ink-dim); max-width: 580px; font-weight: 500; line-height: 1.35; }
   .cover-foot { display: flex; justify-content: space-between; align-items: flex-end; }
   .pill { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-dim); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
 
@@ -168,6 +189,22 @@
     font-weight: 700;
     opacity: 0.9;
     text-shadow: 0 0 16px rgba(132, 243, 190, 0.6);
+  }
+
+  /* Mockup-dominant slide — the mockup already carries its own slide number
+     and heading, so we hide the HTML header and let the image be full-bleed. */
+  .mockup-slide { padding: 0; }
+  .mockup-slide .head { display: none; }
+  .mockup-slide .mockup-hero {
+    flex: 1; display: block;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+  }
+  .mockup-slide .mockup-hero img {
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center;
+    display: block;
   }
 
   /* Feature grid — 4 cards in 2x2 layout, each shows a different feature in a different skin */
@@ -357,10 +394,15 @@ document.getElementById("dlHtml").addEventListener("click", function() {
     </div>
     <div class="meta">Stellar Hack Meridian · Lisboa · Oct 2026</div>
   </header>
-  <div>
-    <p class="eyebrow">Live on Stellar · 1 USDC minimum</p>
-    <h1>First trade,<br>thirty seconds.</h1>
-    <p class="tag">A gamified investing app on Stellar for people who have never traded crypto before.</p>
+  <div class="cover-body">
+    <div class="cover-copy">
+      <p class="eyebrow">Live on Stellar · Learn by playing · 1 USDC to start</p>
+      <h1>Learn to invest<br>by playing a game.</h1>
+      <p class="tag">A 30-second gamified classroom on Stellar for tech-savvy people who don&rsquo;t speak crypto yet.</p>
+    </div>
+    <div class="cover-preview">
+      <img src="/screenshots/flow/03-character-reveal.png" alt="TokenMetal character reveal">
+    </div>
   </div>
   <div class="cover-foot">
     <div class="meta">Powered by <a href="https://www.cryptodays.xyz/" style="color: var(--orange); text-decoration: none; font-weight: 700;">Cryptodays</a> · Spain</div>
@@ -389,12 +431,11 @@ document.getElementById("dlHtml").addEventListener("click", function() {
   </div>
 </section>
 
-<!-- 3. SOLUTION + QUIZ DEPTH -->
+<!-- 3. THE ONE FLOW — real filmstrip -->
 <section class="slide">
-  <header class="head"><div><span class="num">03</span> · The user flow</div><div>Real screenshots · token-metal.vercel.app/invest</div></header>
-  <p class="eyebrow">A behavioral quiz · not a form</p>
-  <h2 style="margin-bottom: 10px; font-size: 48px;">We measure what people do,<br>not what they say.</h2>
-  <p class="one-line" style="margin-bottom: 28px; font-size: 16px;">Three real decisions, not a declared risk tolerance. The quiz even warns hype-prone users when the game reveals they are.</p>
+  <header class="head"><div><span class="num">03</span> · The one flow</div><div>Four real screens · 30 seconds from first visit to first pick</div></header>
+  <p class="eyebrow">The product in motion</p>
+  <h2 style="font-size: 48px; margin-bottom: 26px;">From curious to confident<br>in four real screens.</h2>
   <div class="flow4">
     <div class="flow-step">
       <div class="n">01</div>
@@ -416,120 +457,68 @@ document.getElementById("dlHtml").addEventListener("click", function() {
     <div class="flow-arrow">&rarr;</div>
     <div class="flow-step">
       <div class="n">04</div>
-      <div class="phone"><img src="/screenshots/flow/04-picks.png" alt="Three picks"></div>
-      <div class="lbl">Three picks</div>
+      <div class="phone"><img src="/screenshots/flow/04-picks.png" alt="Three live picks"></div>
+      <div class="lbl">Three live picks</div>
     </div>
   </div>
 </section>
 
-<!-- 4. PRODUCT FEATURES across skins -->
-<section class="slide">
-  <header class="head"><div><span class="num">04</span> · The product</div><div>Four skins · five live features</div></header>
-  <p class="eyebrow">One product. Many surfaces.</p>
-  <h2 style="margin-bottom: 10px; font-size: 48px;">Every feature, in every universe.</h2>
-  <p class="one-line" style="margin-bottom: 24px; font-size: 16px;">Three inputs, three picks, atomic Stellar settlement, live positions, practice mode. Each one works across every skin.</p>
-  <div class="feature-grid">
-    <figure class="feature-card">
-      <div class="feature-shot"><img src="/screenshots/features/skin-metal-controls.png" alt="Risk controls on Metal"></div>
-      <figcaption>
-        <div class="f-eyebrow">METAL</div>
-        <div class="f-name">Risk + capital + horizon</div>
-        <div class="f-sub">Three inputs any beginner can answer.</div>
-      </figcaption>
-    </figure>
-    <figure class="feature-card">
-      <div class="feature-shot"><img src="/screenshots/features/b-picks.png" alt="Three picks on Grid"></div>
-      <figcaption>
-        <div class="f-eyebrow">GRID</div>
-        <div class="f-name">Three live picks</div>
-        <div class="f-sub">Scored by our Stellar engine. Practice mode means no wallet needed to look.</div>
-      </figcaption>
-    </figure>
-    <figure class="feature-card">
-      <div class="feature-shot"><img src="/screenshots/features/c-positions.png" alt="Positions on Glass"></div>
-      <figcaption>
-        <div class="f-eyebrow">GLASS</div>
-        <div class="f-name">Positions &amp; activity</div>
-        <div class="f-sub">On-chain truth. CSV export. One-tap sell.</div>
-      </figcaption>
-    </figure>
-    <figure class="feature-card">
-      <div class="feature-shot"><img src="/screenshots/features/d-skin-switcher.png" alt="Skin switcher"></div>
-      <figcaption>
-        <div class="f-eyebrow">SKINS</div>
-        <div class="f-name">Switch universes</div>
-        <div class="f-sub">Pick the mood. The whole app reskins instantly.</div>
-      </figcaption>
-    </figure>
-  </div>
+<!-- 4. EVERY FEATURE, EVERY UNIVERSE -->
+<section class="slide mockup-slide">
+  <header class="head"><div><span class="num">04</span> · The product</div><div>Every feature, in every universe</div></header>
+  <div class="mockup-hero"><img src="/screenshots/mockups/mockup-3.png" alt="Every feature, in every universe. Risk + capital + horizon, three live picks, positions & activity, switch universes."></div>
 </section>
 
-<!-- 5. OPPORTUNITY + WHY STELLAR -->
-<section class="slide">
-  <header class="head"><div><span class="num">05</span> · Opportunity · Why Stellar</div><div>TokenMetal</div></header>
-  <p class="eyebrow">The barrier is confidence · the chain is Stellar</p>
-  <h2 style="font-size: 52px; margin-bottom: 20px;">33M Americans will buy their first crypto in 2026.<br>Half of them are blocked by "I don't understand."</h2>
-  <div class="three">
-    <div class="stat">
-      <div class="n">48<span class="u">%</span></div><div class="l">Blocked by "I don't understand"</div>
-      <div class="note">The #1 barrier for non-holders. Not price, not access. Confidence.</div>
-    </div>
-    <div class="stat mint">
-      <div class="n">&lt;$0.01</div><div class="l">Stellar network fee</div>
-      <div class="note">Low enough that a $1 trade stays 99% capital, not fee. Makes a beginner-first product viable.</div>
-    </div>
-    <div class="stat mint">
-      <div class="n">$1<span class="u">B+</span></div><div class="l">Stellar RWA · stablecoins</div>
-      <div class="note">PayPal USD. Franklin Templeton. Users graduate from first trade to real yield on the same chain.</div>
-    </div>
-  </div>
-  <p class="one-line" style="margin-top: 24px;">Studies show gamification lifts fintech engagement ~48% and 90-day retention 30–40%. Stellar built the rails. We build the UX layer that routes the next cohort into Stellar's stablecoin and RWA ecosystem.</p>
+<!-- 7. WHY STELLAR -->
+<section class="slide mockup-slide">
+  <header class="head"><div><span class="num">05</span> · Why Stellar</div><div>Built for small, real payments</div></header>
+  <div class="mockup-hero"><img src="/screenshots/mockups/mockup-10.png" alt="Built for small, real payments. Seconds to settle. Less than 1 cent per transaction. USDC native + built-in DEX."></div>
 </section>
 
-<!-- 6. BUSINESS + COMPETITIVE + ASK + TEAM -->
+<!-- 6. BUSINESS + GO-TO-MARKET + ASK + TEAM -->
 <section class="slide">
-  <header class="head"><div><span class="num">06</span> · Business · Competitors · Ask · Team</div><div>Live on mainnet</div></header>
+  <header class="head"><div><span class="num">06</span> · Business · Go-to-market · Ask · Team</div><div>Live on Stellar</div></header>
   <div class="two" style="gap: 44px; align-items: start;">
     <div>
       <p class="eyebrow">The model</p>
-      <h2 style="font-size: 44px; margin-bottom: 16px;">2% on buys. 0% on sells.</h2>
-      <p style="font-size: 15px; color: var(--ink-dim); margin-bottom: 20px; line-height: 1.5;">Active users average two $50 buys per month, so ~$2 revenue per user per month, or ~$24 per year at the 2% fee. Premium skins add a $1–3 monthly secondary line once a user retains. Cryptodays IRL distribution keeps blended CAC near zero, pushing realistic 12-month LTV to around <b style="color: var(--mint);">$40 per active user</b>.</p>
-      <p class="eyebrow">Competitors</p>
-      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+      <h2 style="font-size: 42px; margin-bottom: 14px;">2% on buys. 0% on sells.</h2>
+      <p style="font-size: 15px; color: var(--ink-dim); margin-bottom: 24px; line-height: 1.5;">Two $50 buys per active user per month = <b style="color: var(--mint);">$24/year</b> at 2%. Premium skins add $1–3/month once a user retains. Cryptodays IRL distribution keeps blended CAC near zero. Realistic 12-month LTV: <b style="color: var(--mint);">$40 per active user</b>.</p>
+      <p class="eyebrow">Go-to-market · aligned with Stellar</p>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
         <div class="compare">
-          <div style="display: flex; justify-content: space-between; align-items: baseline;"><span class="name">Coinbase</span><span class="pos">Custodial exchange</span></div>
-          <div class="vs">We give a <b>30-second behavioral quest</b> instead of a 500-coin menu, and a <b>non-custodial</b> flow instead of a KYC wall.</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline;"><span class="name">Phase 1 · Spain</span><span class="pos">Live now · Cryptodays IRL</span></div>
+          <div class="vs">40+ live events, 3K+ attendees. We show up with the live app and sign the first 1,000 users at the event, in person, with a free USDC starter from the <b style="color: var(--mint);">Stellar anchor on-ramp</b>.</div>
         </div>
         <div class="compare">
-          <div style="display: flex; justify-content: space-between; align-items: baseline;"><span class="name">Robinhood Crypto</span><span class="pos">Gamified · custodial · US-only</span></div>
-          <div class="vs">We gamify <b>risk profiling</b>, not trading dopamine. Three vetted Stellar picks per session, settled in the user's wallet.</div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline;"><span class="name">Phase 2 · LATAM</span><span class="pos">Q1 2027 · Stellar partners</span></div>
+          <div class="vs">Expand with Stellar&rsquo;s existing MoneyGram and anchor rails already live in LATAM. Beginner USDC investing becomes the natural <b style="color: var(--mint);">second product</b> after a remittance.</div>
         </div>
         <div class="compare">
-          <div style="display: flex; justify-content: space-between; align-items: baseline;"><span class="name">Acorns</span><span class="pos">Set-and-forget · fiat only</span></div>
-          <div class="vs">We match Acorns' simplicity with real on-chain crypto, backtested picks, and <b>a product that feels like a game.</b></div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline;"><span class="name">Viral loop</span><span class="pos">Native · zero paid spend</span></div>
+          <div class="vs">Every character reveal is tweet-shaped. The game produces shareable results that drive signups without ad spend. <b style="color: var(--mint);">Growth bakes in.</b></div>
         </div>
       </div>
     </div>
     <div>
       <p class="eyebrow">The ask</p>
-      <div class="ask-list" style="margin-bottom: 24px;">
+      <div class="ask-list" style="margin-bottom: 20px;">
         <div class="ask-item"><div class="n">01</div><div class="t">An <b style="color: var(--mint);">SDF ecosystem grant</b> to fund six months of Spain-focused growth and retention testing.</div></div>
         <div class="ask-item"><div class="n">02</div><div class="t"><b style="color: var(--mint);">Intros</b> to Stellar payment partners (MoneyGram, anchors) for USDC on-ramp partnerships.</div></div>
         <div class="ask-item"><div class="n">03</div><div class="t">Hackathon prize deployed into <b style="color: var(--mint);">Cryptodays paid acquisition</b> to prove our CAC-to-retention thesis.</div></div>
       </div>
       <p class="eyebrow">The team</p>
-      <div style="display: flex; gap: 20px; align-items: flex-start;">
+      <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
         <div>
           <div style="font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--ink);">Tomás</div>
-          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;">Founder · Growth</div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;">Founder &middot; Growth</div>
         </div>
         <div>
           <div style="font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--ink);">Joanna</div>
-          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;">Marketing · 160K users scaled</div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;">Marketing &middot; 160K users scaled</div>
         </div>
         <div>
           <div style="font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--ink);">Cryptodays</div>
-          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;">40+ events · 3K+ attendees · Spain</div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;">40+ events &middot; 3K+ attendees &middot; Spain</div>
         </div>
       </div>
     </div>
@@ -540,7 +529,7 @@ document.getElementById("dlHtml").addEventListener("click", function() {
 <section class="slide final">
   <p class="eyebrow">Try it live · 1 USDC to start</p>
   <h1>Make Stellar the<br>easiest first trade.</h1>
-  <p class="tag">Live on Stellar mainnet. No signup. Your keys stay with you.</p>
+  <p class="tag">Live on Stellar. No signup. You stay in control of your money the whole way.</p>
   <div class="cta-row">
     <a href="https://token-metal.vercel.app/invest" class="cta primary">Try TokenMetal &rarr;</a>
     <a href="https://token-metal.vercel.app" class="cta ghost">token-metal.vercel.app</a>

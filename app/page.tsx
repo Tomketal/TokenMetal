@@ -83,7 +83,7 @@ const controlFacts = [
   },
   {
     title: "You confirm every purchase in your own wallet.",
-    body: "TokenMetal never holds your money or your keys. The fee and the purchase happen in one atomic transaction: both or neither."
+    body: "TokenMetal never holds your money. The fee and the purchase happen together: either both succeed, or neither does. No ambiguous half-states."
   },
   {
     title: "You can sell at any time with one tap.",
@@ -102,7 +102,7 @@ const stellarBeginnerFacts = [
   },
   {
     title: "What you see is what really happened.",
-    body: "Your activity shows the actual on-chain result of every trade — never a guess or a pre-trade estimate."
+    body: "Your activity shows what actually happened on the Stellar network, not a prediction from before the trade settled."
   }
 ];
 
@@ -129,7 +129,7 @@ const faqs = [
   },
   {
     q: "Does it use real money?",
-    a: "Yes. TokenMetal is live on Stellar mainnet, so every purchase uses real USDC from your own wallet. You can start with as little as 1 USDC. If you just want to look first, watch the walkthrough."
+    a: "Yes. TokenMetal is live on Stellar, so every purchase uses real USDC from your own account. You can start with as little as 1 USDC. If you just want to look first, watch the walkthrough."
   },
   {
     q: "Which wallet do I need?",
@@ -284,10 +284,9 @@ function Hero() {
 
       <div className="hero-copy" style={{ position: "relative", zIndex: 1 }}>
         <LivePill />
-        <h1 className="reveal">Your first step into crypto, your way.</h1>
+        <h1 className="reveal">Learn to invest in crypto<br/>by playing a game.</h1>
         <p className="hero-lede reveal">
-          Explore tokens and make your own decisions with a simple, customizable
-          app built on Stellar.
+          A 30-second gamified classroom on Stellar for tech-savvy people who don&apos;t speak crypto yet. Play the risk quiz, meet your investor character, then make your first real trade.
         </p>
         <div className="hero-cta-row reveal">
           <LiquidGlassButton
@@ -423,13 +422,58 @@ function WhyTokenMetal() {
   );
 }
 
+// Pedagogy section — three main features of the service, each with a real
+// product screenshot. For tech-savvy people who know software, not crypto.
+function Pedagogy() {
+  return (
+    <section className="content-band pedagogy-band">
+      <div className="pedagogy-shell">
+        <p className="pedagogy-eyebrow reveal">For people who know software, not crypto</p>
+        <h2 className="pedagogy-h reveal">
+          You don&apos;t read your way into crypto.<br/>
+          You <span className="mint">play your way in.</span>
+        </h2>
+        <p className="pedagogy-lede reveal">
+          Three features turn a first-time investor into a confident one in under a minute.
+        </p>
+        <div className="pedagogy-grid">
+          <article className="pedagogy-card reveal">
+            <figure className="pedagogy-shot">
+              <Image src="/screenshots/flow/03-character-reveal.png" alt="Behavioral risk quiz result" width={390} height={720} />
+            </figure>
+            <div className="k">The game</div>
+            <h3>Thirty seconds that read your real risk profile.</h3>
+            <p>You make three real choices and the app watches what you do, so your profile matches your behaviour instead of what you&apos;d say on a form.</p>
+          </article>
+          <article className="pedagogy-card reveal">
+            <figure className="pedagogy-shot">
+              <Image src="/screenshots/features/b-picks.png" alt="Three Stellar picks" width={390} height={720} />
+            </figure>
+            <div className="k">The picks</div>
+            <h3>Three ranked tokens instead of five hundred.</h3>
+            <p>Our Stellar scoring engine looks at five years of market data and only surfaces the three best fits, so your decision is which pick, not whether to pick.</p>
+          </article>
+          <article className="pedagogy-card reveal">
+            <figure className="pedagogy-shot">
+              <Image src="/screenshots/features/skin-metal-controls.png" alt="You approve every trade" width={390} height={720} />
+            </figure>
+            <div className="k">The control</div>
+            <h3>Every trade is approved by you, never by us.</h3>
+            <p>TokenMetal never holds your money and cannot move a cent on your behalf. You approve each purchase, and selling is always one tap with no exit fee.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HowItWorks() {
   return (
     <section className="content-band how-it-works-band" id="how">
       <SectionHeading
-        kicker="How it works"
-        title="Four steps. Thirty seconds to the first one."
-        body="From your first visit to your first purchase, every step is explained in plain words. You decide, confirm, and keep control at all times."
+        kicker="You just did steps 1 and 2"
+        title="Here's the whole arc — including what happens after you buy."
+        body="From the quiz to Your Activity, every step is explained in plain words. You decide, confirm, and keep control at all times."
       />
       <div className="reveal">
         <HowItWorksBento />
@@ -461,27 +505,37 @@ function SkinShowcase() {
   );
 }
 
-// Skins — show the actual product in each skin as proof, not color swatches.
+// Skins section — replaced with the live product walkthrough video so visitors
+// see the real app step by step instead of a static four-mood row.
 function Skins() {
-  const previews = [
-    { id: "metal", name: "Metal", src: "/screenshots/pitch/metal-mobile.png" },
-    { id: "glass", name: "Glass", src: "/screenshots/pitch/glass-mobile.png" },
-    { id: "plush", name: "Plush", src: "/screenshots/pitch/plush-mobile.png" },
-    { id: "grid",  name: "Grid",  src: "/screenshots/pitch/grid-mobile.png" }
-  ];
   return (
     <section className="content-band skin-band simple-skin">
       <div className="simple-skin-shell">
-        <h2 className="reveal">Pick the look that feels like you.</h2>
-        <p className="simple-skin-sub reveal">Four moods. One product. Your pick.</p>
-        <div className="skin-preview-row reveal">
-          {previews.map((p) => (
-            <figure className="skin-preview" key={p.id}>
-              <Image src={p.src} alt={`${p.name} skin`} width={390} height={844} />
-              <figcaption>{p.name}</figcaption>
-            </figure>
-          ))}
+        <p className="pedagogy-eyebrow reveal" style={{ textAlign: "center" }}>Watch the live product</p>
+        <h2 className="reveal">See every step of the real app.</h2>
+        <p className="simple-skin-sub reveal">A step-by-step walkthrough of the live product on Stellar mainnet.</p>
+        <div className="demo-video-wrap reveal">
+          <video
+            className="demo-video"
+            src="/token-metal-step-by-step.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            preload="metadata"
+            aria-label="TokenMetal step-by-step walkthrough"
+          />
         </div>
+        <p className="demo-credentials reveal" aria-label="Credentials">
+          <span>Live on Stellar</span>
+          <span className="demo-credentials-dot" aria-hidden="true" />
+          <span>Open source</span>
+          <span className="demo-credentials-dot" aria-hidden="true" />
+          <span>1 USDC minimum</span>
+          <span className="demo-credentials-dot" aria-hidden="true" />
+          <span>Non-custodial</span>
+        </p>
       </div>
     </section>
   );
@@ -494,13 +548,13 @@ function Control() {
       <div className="simple-control-shell control-with-proof">
         <div className="control-copy">
           <h2 className="reveal">
-            Your money. Your keys. <span className="mint">Full stop.</span>
+            You approve every purchase. <span className="mint">We can&apos;t touch your money.</span>
           </h2>
           <p className="simple-control-sub reveal">
-            Every trade is confirmed in your own Stellar wallet. We never move your funds, and the activity you see is always what really happened on-chain.
+            TokenMetal never holds your funds. You review every buy, tap once to approve it, and the money moves straight from your account to the token you picked. Sell any time, one tap, no exit fee.
           </p>
           <p className="simple-control-fine reveal">
-            Live on Stellar mainnet. Automatic stop loss is coming soon.
+            Think Apple Pay for crypto: the app suggests, you decide. Auto stop-loss coming next.
           </p>
         </div>
         <figure className="control-proof reveal">
@@ -660,8 +714,8 @@ export default function LandingPage() {
       <Skins />
       <Control />
       <Stellar />
-      <PoweredByCryptodays />
       <FAQ />
+      <PoweredByCryptodays />
       <FinalCTA />
       <Script id="landing-reveal" strategy="afterInteractive">{revealScript}</Script>
     </main>
