@@ -2,13 +2,14 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export type SkinId = "metal" | "glass" | "plush" | "grid";
+export type SkinId = "metal" | "glass" | "plush" | "grid" | "cryptodays";
 
 export const SKINS: { id: SkinId; name: string; edition: string; blurb: string }[] = [
   { id: "metal", name: "Metal", edition: "METAL-01", blurb: "Chrome and mint terminal" },
   { id: "glass", name: "Glass", edition: "GLASS-02", blurb: "Translucent gel buttons" },
   { id: "plush", name: "Pink Plush", edition: "PLUSH-03", blurb: "Soft fur, pearl keys" },
-  { id: "grid", name: "Grid", edition: "GRID-04", blurb: "Industrial terminal" }
+  { id: "grid", name: "Grid", edition: "GRID-04", blurb: "Industrial terminal" },
+  { id: "cryptodays", name: "Cryptodays", edition: "CDAYS-05", blurb: "Violet education glow" }
 ];
 
 const STORAGE_KEY = "tm-skin";

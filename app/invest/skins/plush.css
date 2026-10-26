@@ -31,14 +31,38 @@
    The WebGL PlushBackground canvas sits fixed behind the UI. Body stays
    transparent so the shader shows through. */
 
+/* Body gets a soft pink gradient as a FALLBACK so that on mobile — where the
+   device chassis doesn't fill the viewport — there's no black bar above/below
+   the fur. The real WebGL fur canvas sits inside .device and shows above this. */
 [data-skin="plush"] body {
-  background: transparent;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 0%, rgba(255, 180, 210, 0.85), transparent 60%),
+    radial-gradient(ellipse 90% 70% at 50% 100%, rgba(168, 45, 104, 0.65), transparent 60%),
+    linear-gradient(170deg, #c6447f 0%, #a82d68 50%, #781e4b 100%);
   color: var(--plush-plum);
   font-family: var(--plush-font);
   font-weight: 400;
 }
 
-[data-skin="plush"] body::before,
+/* Soft fur-like noise overlay for the fallback body, so even where the real
+   WebGL fur isn't rendering we still read as "plushy" rather than flat pink. */
+[data-skin="plush"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle 2px at 20% 30%, rgba(255, 220, 230, 0.5), transparent 60%),
+    radial-gradient(circle 2px at 60% 20%, rgba(255, 220, 230, 0.4), transparent 60%),
+    radial-gradient(circle 2px at 80% 60%, rgba(255, 220, 230, 0.4), transparent 60%),
+    radial-gradient(circle 2px at 30% 70%, rgba(255, 220, 230, 0.5), transparent 60%),
+    radial-gradient(circle 2px at 70% 85%, rgba(255, 220, 230, 0.4), transparent 60%);
+  background-size: 40px 40px, 60px 60px, 50px 50px, 55px 55px, 45px 45px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.6;
+  mix-blend-mode: screen;
+}
+
 [data-skin="plush"] body::after {
   background: none;
   display: none;
@@ -86,19 +110,98 @@
    Translucent so the fur background shows through — the device becomes
    a soft ivory window set INTO the fur, not a solid pink block. */
 
+/* Device: the plush pillow itself. WebGL fur spills OUTSIDE this element so
+   the fluffiness surrounds the chassis — "everything fluffy", not fur
+   contained inside a frame. overflow: visible lets the extended PlushBackground
+   canvas bleed into the surrounding viewport.
+   The device still has a soft pink body underneath so panels sit on a readable
+   surface rather than floating on raw fur. */
 [data-skin="plush"] .device {
+  position: relative;
+  overflow: visible;
+  padding: 42px;
   border-radius: 48px 48px 56px 56px;
-  background:
-    linear-gradient(180deg, rgba(255, 247, 251, 0.72) 0%, rgba(255, 220, 235, 0.6) 100%);
-  border: 2px solid rgba(255, 247, 251, 0.9);
+  /* Soft pink body with a feathered edge so the device "melts" into the fur
+     around it, instead of showing a hard chassis border. */
+  background: #efbed5;
+  border: none;
+  /* Layered box-shadow "fur fringe" — eight stacked rings of pink/raspberry/magenta
+     at decreasing opacity simulate individual fur strands poking out of the
+     chassis edge. Short strands (2–7px) stay tight to the body; medium (12–20px)
+     form the main fringe; long (32–80px) fade off into the surrounding fur. */
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -4px 8px rgba(168, 45, 104, 0.14),
-    0 24px 60px rgba(120, 30, 72, 0.4),
-    0 8px 20px rgba(80, 20, 50, 0.3);
+    /* soft inner pillow highlight */
+    inset 0 2px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -4px 10px rgba(168, 45, 104, 0.08),
+    /* short fuzz, hugging the border — the base of each strand */
+    0 0 0 2px rgba(255, 194, 219, 0.70),
+    0 0 0 4px rgba(255, 170, 205, 0.52),
+    0 0 0 7px rgba(255, 150, 192, 0.40),
+    /* mid fringe — the visible "fur ring" */
+    0 0 0 12px rgba(240, 125, 174, 0.30),
+    0 0 0 20px rgba(220, 95, 150, 0.22),
+    /* long fluff — tapered strands fading into the backdrop */
+    0 0 0 32px rgba(200, 70, 130, 0.14),
+    0 0 0 50px rgba(180, 55, 115, 0.08),
+    0 0 80px 20px rgba(239, 190, 213, 0.38),
+    /* grounding shadow underneath the pillow */
+    0 40px 80px rgba(120, 30, 72, 0.42),
+    0 14px 32px rgba(80, 20, 50, 0.32);
+  /* Stack of drop-shadows — these follow the actual border-radius shape, so the
+     fluff feathers out ORGANICALLY along the pillow silhouette instead of forming
+     a hard rectangular ring. Combined with the mask-image below, this is what
+     sells the "real fur" look. */
+  filter:
+    drop-shadow(0 0 1px rgba(255, 200, 222, 0.9))
+    drop-shadow(0 0 3px rgba(255, 160, 198, 0.65))
+    drop-shadow(0 0 8px rgba(240, 125, 174, 0.45))
+    drop-shadow(0 0 18px rgba(220, 95, 150, 0.28))
+    drop-shadow(0 0 36px rgba(200, 70, 130, 0.18));
+  /* Irregular feathered mask so the fur edge doesn't read as a perfect rounded
+     rect — radial-gradient noise makes the silhouette slightly ragged. The main
+     body remains fully opaque; only the far outer periphery is softened. */
+  -webkit-mask-image:
+    radial-gradient(ellipse at 20% 30%, #000 60%, rgba(0, 0, 0, 0.985) 72%, rgba(0, 0, 0, 0.97) 100%),
+    radial-gradient(ellipse at 80% 70%, #000 65%, rgba(0, 0, 0, 0.98)  78%, rgba(0, 0, 0, 0.96) 100%);
+  -webkit-mask-composite: source-over;
+          mask-image:
+    radial-gradient(ellipse at 20% 30%, #000 60%, rgba(0, 0, 0, 0.985) 72%, rgba(0, 0, 0, 0.97) 100%),
+    radial-gradient(ellipse at 80% 70%, #000 65%, rgba(0, 0, 0, 0.98)  78%, rgba(0, 0, 0, 0.96) 100%);
+          mask-composite: add;
   color: var(--plush-plum);
-  backdrop-filter: blur(10px) saturate(130%);
-  -webkit-backdrop-filter: blur(10px) saturate(130%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Chassis-frame sits as an inset tablet, with a small gap of fur around all sides */
+[data-skin="plush"] .chassis-frame {
+  margin: 6px;
+  border-radius: 32px;
+  padding: 18px;
+  box-shadow:
+    0 0 0 1px rgba(168, 45, 104, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 10px 24px rgba(120, 30, 72, 0.18);
+}
+
+/* Panels get a touch of margin so fur peeks between them too */
+[data-skin="plush"] .panel-shell {
+  margin: 4px 0;
+}
+
+/* Kill the plush ::before frame-rim so no pink shell blocks the fur */
+[data-skin="plush"] .device::before {
+  display: none;
+}
+
+/* Hover tilt/squeeze removed — the WebGL fur already brushes with the
+   cursor; a scale transform on top felt wobbly. Fur-only interaction. */
+
+/* Everything in the device must sit ABOVE the fur canvas */
+[data-skin="plush"] .device > * {
+  position: relative;
+  z-index: 1;
 }
 
 [data-skin="plush"] .device::before {
@@ -116,16 +219,14 @@
   animation: none;
 }
 
+/* Chassis frame: also transparent, lets the fur show through */
 [data-skin="plush"] .chassis-frame {
   border-radius: 40px 40px 48px 48px;
-  background:
-    radial-gradient(circle at 50% 40%, #fbd7e6 0%, var(--plush-blush) 60%, var(--plush-rose) 100%);
-  border: 1px solid rgba(255, 247, 251, 0.6);
+  background: transparent;
+  border: 1px solid rgba(255, 247, 251, 0.3);
   box-shadow:
-    inset 0 2px 0 rgba(255, 247, 251, 0.72),
-    inset 0 -24px 32px rgba(168, 45, 104, 0.22),
-    inset 0 0 0 1px rgba(168, 45, 104, 0.1),
-    0 22px 42px rgba(120, 30, 72, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 0 0 1px rgba(168, 45, 104, 0.08);
 }
 
 [data-skin="plush"] .chassis-frame::before {
@@ -138,6 +239,62 @@
 [data-skin="plush"] .chassis-frame::after {
   background: none;
   animation: none;
+}
+
+/* ---------- Decorative dome accent buttons around the chassis border ---------- */
+
+[data-skin="plush"] .chassis-frame {
+  position: relative;
+}
+
+/* Top-left pink dome + top-right purple dome via ::before */
+[data-skin="plush"] .chassis-frame::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: 28px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.7) 0%, transparent 40%),
+    radial-gradient(circle at 50% 55%, #ff8ab0 0%, #b03a74 100%);
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+    inset 0 2px 4px rgba(255, 255, 255, 0.5),
+    120px 0 0 -2px #b35fe0,
+    120px 0 6px 0 rgba(0, 0, 0, 0.2),
+    260px 0 0 -2px #5fb3e0,
+    260px 0 6px 0 rgba(0, 0, 0, 0.2);
+  z-index: 3;
+  pointer-events: none;
+  border: none;
+}
+
+/* Bottom pink + purple + blue accent domes via ::after */
+[data-skin="plush"] .chassis-frame::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  right: 28px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.7) 0%, transparent 40%),
+    radial-gradient(circle at 50% 55%, #ffd958 0%, #c69614 100%);
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+    inset 0 2px 4px rgba(255, 255, 255, 0.5),
+    -120px 0 0 -2px #ff8ab0,
+    -120px 0 6px 0 rgba(0, 0, 0, 0.2),
+    -260px 0 0 -2px #b35fe0,
+    -260px 0 6px 0 rgba(0, 0, 0, 0.2);
+  z-index: 3;
+  pointer-events: none;
+  border: none;
 }
 
 /* ---------- Panel shells (velvet pads) ---------- */
@@ -167,6 +324,7 @@
   background: linear-gradient(180deg, rgba(255, 247, 251, 0.9) 0%, rgba(255, 230, 240, 0.78) 100%);
   backdrop-filter: blur(14px) saturate(135%);
   -webkit-backdrop-filter: blur(14px) saturate(135%);
+  padding: 8px;
 }
 
 [data-skin="plush"] .header-shell {
@@ -253,29 +411,44 @@
     radial-gradient(circle at 30% 20%, #ffffff 0%, var(--plush-ivory) 60%, #fde3ee 100%);
 }
 
-/* ---------- Screens (ivory inserts) ---------- */
+/* ---------- Screens (Tamagotchi LCD panels) ---------- */
 
-[data-skin="plush"] .screen {
-  border-radius: 22px;
-  border: 7px solid #fbd7e6;
-  padding: 16px;
-  background:
-    radial-gradient(circle at 20% 15%, #ffffff 0%, var(--plush-ivory) 55%, #fdeaf3 100%);
-  color: var(--plush-plum);
+[data-skin="plush"] .screen,
+[data-skin="plush"] .balance-screen,
+[data-skin="plush"] .opportunities-screen,
+[data-skin="plush"] .mini-screen,
+[data-skin="plush"] .balance-chip,
+[data-skin="plush"] .engine-mini-screen {
+  border-radius: 12px;
+  border: 4px solid #f0e4b8;
+  padding: 12px;
+  background-color: #c6d890;
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+  background-size: 4px 4px;
+  color: #2a3818;
+  font-family: "VT323", "Press Start 2P", "Courier New", monospace;
   box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.9),
-    inset 0 0 0 1px rgba(168, 45, 104, 0.14),
-    inset 0 -10px 18px rgba(168, 45, 104, 0.1),
-    0 10px 20px rgba(120, 30, 72, 0.18);
+    inset 0 0 0 1px #8a9460,
+    inset 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+[data-skin="plush"] .screen *,
+[data-skin="plush"] .balance-screen *,
+[data-skin="plush"] .opportunities-screen *,
+[data-skin="plush"] .mini-screen *,
+[data-skin="plush"] .balance-chip *,
+[data-skin="plush"] .engine-mini-screen * {
+  font-family: "VT323", "Press Start 2P", "Courier New", monospace;
+  color: #2a3818;
 }
 
 [data-skin="plush"] .screen::after {
-  background: linear-gradient(112deg, transparent 0%, rgba(255, 255, 255, 0.6) 46%, transparent 68%);
-  opacity: 0.4;
+  background: linear-gradient(112deg, transparent 0%, rgba(255, 255, 255, 0.18) 46%, transparent 68%);
+  opacity: 0.5;
 }
 
 [data-skin="plush"] .screen-title h2 {
-  color: var(--plush-plum);
+  color: #2a3818;
   font-weight: 700;
 }
 
@@ -286,67 +459,34 @@
 [data-skin="plush"] .balance-chip span,
 [data-skin="plush"] .metric span,
 [data-skin="plush"] .position-details-field span {
-  color: var(--plush-raspberry);
+  color: #2a3818;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  opacity: 0.82;
+  opacity: 0.85;
 }
 
-[data-skin="plush"] .balance-screen strong {
-  color: var(--plush-plum);
+[data-skin="plush"] .balance-screen strong,
+[data-skin="plush"] .balance-chip strong,
+[data-skin="plush"] .mini-screen strong,
+[data-skin="plush"] .engine-mini-screen strong {
+  color: #2a3818;
 }
 
-/* ---------- Chips (ivory inserts nested into fur) ---------- */
+/* ---------- Chips (compact LCD cells) ---------- */
 
 [data-skin="plush"] .balance-chip {
   min-height: 56px;
-  border-radius: 14px;
-  border: 1px solid rgba(168, 45, 104, 0.18);
-  background:
-    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde3ee 100%);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.95),
-    inset 0 -3px 6px rgba(168, 45, 104, 0.1);
-  color: var(--plush-plum);
-}
-
-[data-skin="plush"] .balance-chip strong {
-  color: var(--plush-plum);
+  padding: 10px;
 }
 
 [data-skin="plush"] .mini-screen {
   min-height: 108px;
-  border-radius: 16px;
-  padding: 12px;
-  border: 1px solid rgba(168, 45, 104, 0.18);
-  background:
-    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde3ee 100%);
-  color: var(--plush-plum);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.95),
-    inset 0 -4px 8px rgba(168, 45, 104, 0.12),
-    inset 0 0 0 1px rgba(168, 45, 104, 0.05);
 }
 
 [data-skin="plush"] .mini-screen strong {
-  color: var(--plush-plum);
   text-transform: lowercase;
   font-weight: 700;
-}
-
-[data-skin="plush"] .engine-mini-screen {
-  border-radius: 12px;
-  border: 1px solid rgba(168, 45, 104, 0.2);
-  background:
-    radial-gradient(circle at 25% 20%, #ffffff 0%, var(--plush-ivory) 70%, #fde3ee 100%);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.9),
-    inset 0 -2px 5px rgba(168, 45, 104, 0.1);
-}
-
-[data-skin="plush"] .engine-mini-screen strong {
-  color: var(--plush-plum);
 }
 
 /* ---------- Control module (fur-recessed cradle for ivory) ---------- */
@@ -365,52 +505,113 @@
 /* ---------- Risk dots (pearl keys) ---------- */
 
 [data-skin="plush"] .risk-slider {
-  gap: 10px;
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
   margin-top: 14px;
-  padding: 6px;
+  padding: 10px;
   border-radius: 16px;
-  background: rgba(168, 45, 104, 0.1);
-  box-shadow:
-    inset 0 2px 4px rgba(168, 45, 104, 0.22),
-    inset 0 -1px 0 rgba(255, 247, 251, 0.5);
+  background: transparent;
+  box-shadow: none;
 }
 
 [data-skin="plush"] .risk-dot {
-  border-radius: 14px;
-  min-height: 42px;
-  border: 1px solid rgba(168, 45, 104, 0.22);
-  color: var(--plush-plum);
-  font-weight: 700;
+  position: relative;
+  z-index: 4;              /* above the chassis-frame::before/after decorative domes */
+  pointer-events: auto;    /* defensive — nothing in this tree should swallow clicks */
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 68px;
+  min-height: 68px;
+  width: 72px;
+  height: 72px;
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  color: #4a1b37;
+  font-family: var(--plush-font);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
   background:
-    radial-gradient(circle at 30% 25%, #ffffff 0%, var(--plush-ivory) 55%, #fcd9e6 100%);
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.7) 0%, transparent 42%),
+    radial-gradient(circle at 50% 60%, #ff8ab0, #c85078);
   box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.98),
-    inset 0 -4px 8px rgba(168, 45, 104, 0.14),
-    0 3px 6px rgba(168, 45, 104, 0.18);
-  transition: transform 140ms ease, box-shadow 140ms ease;
+    0 6px 14px rgba(0, 0, 0, 0.28),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.2),
+    inset 0 5px 10px rgba(255, 255, 255, 0.45);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+  cursor: pointer;
+}
+
+/* Small paw emoji above the label as a decorative accent */
+[data-skin="plush"] .risk-dot::before {
+  content: "🐾";
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+[data-skin="plush"] .risk-dot:nth-child(1) {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.6) 0%, transparent 40%),
+    radial-gradient(circle at 50% 60%, #ff8ab0, #c85078);
+}
+
+[data-skin="plush"] .risk-dot:nth-child(2) {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.6) 0%, transparent 40%),
+    radial-gradient(circle at 50% 60%, #ffd958, #d99a1a);
+}
+
+[data-skin="plush"] .risk-dot:nth-child(3) {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.6) 0%, transparent 40%),
+    radial-gradient(circle at 50% 60%, #ff6a5e, #c73020);
 }
 
 [data-skin="plush"] .risk-dot:hover {
-  transform: scale(1.02);
-}
-
-[data-skin="plush"] .risk-dot.active {
-  transform: translateY(1px);
-  color: var(--plush-ivory);
-  border-color: rgba(74, 27, 55, 0.42);
-  background:
-    radial-gradient(circle at 30% 25%, #d64a86 0%, var(--plush-raspberry) 70%, #7f1f4e 100%);
+  transform: translateY(-1px) scale(1.03);
   box-shadow:
-    inset 0 2px 4px rgba(74, 27, 55, 0.35),
-    inset 0 1px rgba(255, 255, 255, 0.3),
-    0 1px 2px rgba(74, 27, 55, 0.3);
+    0 6px 14px rgba(0, 0, 0, 0.28),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.2),
+    inset 0 4px 8px rgba(255, 255, 255, 0.45);
 }
 
+/* Pressed-down candy on click only */
 [data-skin="plush"] .risk-dot:active {
-  transform: translateY(2px);
+  transform: translateY(2px) scale(0.96);
   box-shadow:
-    inset 0 2px 5px rgba(168, 45, 104, 0.3),
-    0 1px 2px rgba(168, 45, 104, 0.2);
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+    inset 0 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+/* Active (selected) state — clearly distinct: brighter saturated candy
+   with a thick white halo ring so users see which risk is picked. */
+[data-skin="plush"] .risk-dot.active {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  filter: brightness(1.1) saturate(1.15);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.85),
+    0 0 0 6px rgba(168, 45, 104, 0.4),
+    0 10px 24px rgba(168, 45, 104, 0.45),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.22),
+    inset 0 5px 10px rgba(255, 255, 255, 0.55);
+}
+
+[data-skin="plush"] .risk-dot.active::before {
+  opacity: 1;
 }
 
 /* ---------- Faders / sliders ---------- */
@@ -524,9 +725,59 @@
 
 [data-skin="plush"] .get-opportunities,
 [data-skin="plush"] .key-button {
-  min-height: 60px;
-  font-size: 15px;
-  letter-spacing: 0.04em;
+  position: relative;
+  min-height: 80px;
+  padding: 0 32px;
+  border-radius: 999px;
+  border: none;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  color: rgba(60, 40, 0, 0.75);
+  font-weight: 700;
+  background:
+    radial-gradient(circle at 35% 25%, #fff9c4 0%, transparent 45%),
+    radial-gradient(circle at 50% 55%, #ffd958 0%, #c69614 100%);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.3),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.22),
+    inset 0 6px 12px rgba(255, 255, 255, 0.5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+[data-skin="plush"] .get-opportunities::before,
+[data-skin="plush"] .key-button::before {
+  content: "🐾";
+  font-size: 30px;
+  color: rgba(60, 40, 0, 0.65);
+  display: inline-block;
+  line-height: 1;
+}
+
+[data-skin="plush"] .get-opportunities::after,
+[data-skin="plush"] .key-button::after {
+  display: none;
+}
+
+[data-skin="plush"] .get-opportunities:hover,
+[data-skin="plush"] .key-button:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.32),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.22),
+    inset 0 6px 12px rgba(255, 255, 255, 0.55);
+  filter: brightness(1.03);
+}
+
+[data-skin="plush"] .get-opportunities:active,
+[data-skin="plush"] .key-button:active {
+  transform: translateY(3px) scale(0.98);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.25),
+    inset 0 3px 6px rgba(255, 255, 255, 0.3);
 }
 
 [data-skin="plush"] .blink-button {
@@ -958,4 +1209,123 @@
   display: block;
   width: 100% !important;
   height: 100% !important;
+}
+
+/* ----------------------------------------------------------------------------
+   Per-component fluffy ring — each panel/card/screen inside the device
+   gets its own pink fur halo. CSS only (no extra WebGL contexts): multi-layer
+   box-shadow stack + a soft blurred ::before pseudo for the "strand fringe"
+   look. Reads as fur without the perf cost of running shaders per element.
+---------------------------------------------------------------------------- */
+
+/* Base fluffy ring applied to every major component in the Plush skin.
+   The box-shadow stack layers concentric soft pink rings:
+     • 2px solid pink hint (closest to the element edge)
+     • 6px fade raspberry (middle fuzz)
+     • 18px soft blurred halo (outer fluff)
+     • a drop-down shadow for depth so cards still read as sitting on fur. */
+[data-skin="plush"] .panel-shell,
+[data-skin="plush"] .control-module,
+[data-skin="plush"] .mini-screen,
+[data-skin="plush"] .screen,
+[data-skin="plush"] .balance-chip,
+[data-skin="plush"] .engine-mini-screen,
+[data-skin="plush"] .op-card,
+[data-skin="plush"] .position,
+[data-skin="plush"] .positions-panel,
+[data-skin="plush"] .position-opened-popup,
+[data-skin="plush"] .position-details-popup,
+[data-skin="plush"] .network-warning-bottom {
+  position: relative;
+  box-shadow:
+    /* Innermost: tight pink rim (reads as fur meeting the edge) */
+    0 0 0 2px rgba(255, 170, 200, 0.45),
+    /* Middle: softer raspberry fuzz */
+    0 0 0 5px rgba(255, 170, 200, 0.22),
+    /* Outer halo: wide, soft, fluffy pink glow */
+    0 0 20px 6px rgba(239, 190, 213, 0.28),
+    /* Depth: tiny drop shadow so cards sit "on" the fur */
+    0 6px 18px rgba(168, 45, 104, 0.22) !important;
+}
+
+/* ::before adds an extra blurred fringe just outside each component —
+   fakes the look of individual pink strands poking out of the edge. */
+[data-skin="plush"] .panel-shell::after,
+[data-skin="plush"] .control-module::after,
+[data-skin="plush"] .mini-screen::after,
+[data-skin="plush"] .screen::after,
+[data-skin="plush"] .op-card::after,
+[data-skin="plush"] .positions-panel::after,
+[data-skin="plush"] .position-opened-popup::after,
+[data-skin="plush"] .position-details-popup::after {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at center, rgba(255, 160, 198, 0.25), transparent 68%);
+  filter: blur(10px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.9;
+}
+
+/* Hover: fluff intensifies on interactive cards (op-card, position) */
+[data-skin="plush"] .op-card:hover,
+[data-skin="plush"] .position:hover,
+[data-skin="plush"] .position-clickable:hover {
+  box-shadow:
+    0 0 0 2px rgba(255, 170, 200, 0.65),
+    0 0 0 6px rgba(255, 170, 200, 0.3),
+    0 0 28px 10px rgba(239, 190, 213, 0.4),
+    0 10px 24px rgba(168, 45, 104, 0.3) !important;
+}
+
+[data-skin="plush"] .op-card:hover::after,
+[data-skin="plush"] .position:hover::after {
+  background: radial-gradient(ellipse at center, rgba(255, 160, 198, 0.4), transparent 70%);
+  inset: -18px;
+}
+
+/* Selected card gets a saturated raspberry fluff ring — picks itself out */
+[data-skin="plush"] .op-card.selected {
+  box-shadow:
+    0 0 0 2px rgba(255, 120, 170, 0.85),
+    0 0 0 6px rgba(255, 170, 200, 0.4),
+    0 0 32px 12px rgba(255, 140, 180, 0.5),
+    0 10px 24px rgba(168, 45, 104, 0.35) !important;
+}
+
+/* The 3 round risk-dot buttons already have their own sphere box-shadow;
+   add a soft pink fuzz halo around each so they also feel fluffy without
+   losing their candy-pearl look. */
+[data-skin="plush"] .risk-dot {
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.28),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.2),
+    inset 0 5px 10px rgba(255, 255, 255, 0.45),
+    /* Outer pink fuzz halo per button */
+    0 0 0 3px rgba(255, 180, 210, 0.3),
+    0 0 20px 8px rgba(239, 190, 213, 0.3);
+}
+
+[data-skin="plush"] .risk-dot:hover {
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.28),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.2),
+    inset 0 4px 8px rgba(255, 255, 255, 0.45),
+    0 0 0 4px rgba(255, 170, 200, 0.5),
+    0 0 26px 10px rgba(239, 190, 213, 0.4);
+}
+
+/* Active risk-dot already has a thick white halo ring from the base rule —
+   just amp the pink glow underneath so it also feels fluffier when picked. */
+[data-skin="plush"] .risk-dot.active {
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.85),
+    0 0 0 7px rgba(255, 150, 190, 0.5),
+    0 0 0 10px rgba(255, 170, 200, 0.3),
+    0 0 30px 10px rgba(239, 190, 213, 0.5),
+    0 10px 24px rgba(168, 45, 104, 0.45),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.22),
+    inset 0 5px 10px rgba(255, 255, 255, 0.55);
 }

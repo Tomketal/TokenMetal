@@ -40,7 +40,7 @@ export function WalletButton() {
     };
   }, [menuOpen]);
 
-  const label = address ? `Connected: ${shortAddress(address)}` : connecting ? "Connecting..." : "Connect wallet";
+  const label = address ? `Signed in · ${shortAddress(address)}` : connecting ? "Signing you in…" : "Sign in";
 
   return (
     <div className="privy-wallet-menu-wrap" ref={menuRef}>
@@ -55,7 +55,7 @@ export function WalletButton() {
           void connect();
         }}
         disabled={connecting}
-        title={connected ? "Wallet connected. Click for options." : "Connect a Stellar wallet"}
+        title={connected ? "Signed in. Click for options." : "Sign in with a Stellar wallet"}
       >
         {label}
       </button>

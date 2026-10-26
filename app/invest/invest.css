@@ -810,6 +810,40 @@ button:disabled {
   text-transform: lowercase;
 }
 
+/* Capital input — editable number inside the mini-screen */
+.capital-input-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.capital-input-wrap strong {
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--screen-ink);
+}
+.capital-input {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  margin: 0;
+  color: var(--screen-ink);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  width: 2.5ch;
+  text-align: right;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  cursor: text;
+}
+.capital-input::-webkit-outer-spin-button,
+.capital-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.capital-input:focus { color: var(--accent); }
+.capital-input:focus-visible { box-shadow: inset 0 -2px 0 var(--accent); }
+
 .risk-slider {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

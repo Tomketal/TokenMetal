@@ -1,49 +1,72 @@
+"use client";
+
 import Image from "next/image";
+import Script from "next/script";
+import dynamic from "next/dynamic";
+import HowItWorksBento from "./components/HowItWorksBento";
+import LiquidGlassButton from "./components/LiquidGlassButton";
+import Features from "./components/Features";
+
+// Dynamically imported WebGL backgrounds (no SSR).
+const LiquidEther = dynamic(() => import("./invest/components/LiquidEther"), {
+  ssr: false
+});
+const MoltenMetal = dynamic(() => import("./invest/components/MoltenMetal"), {
+  ssr: false
+});
+
+// SkinShowcase is being built by another agent concurrently. If it isn't ready,
+// we keep the existing skin-card markup as a safe inline fallback.
+// (Delete this fallback and use `import SkinShowcase from "./components/SkinShowcase";`
+//  once the real component lands.)
 
 const launchUrl = "/invest";
 const tokenMetalXUrl = "https://x.com/TokenMetalapp";
 const founderXUrl = "https://x.com/tomketal";
 const githubUrl = "https://github.com/Tomketal/TokenMetal";
+const pitchDeckUrl = "/pitch-deck.html";
 
-const gettingStartedBenefits = [
+/* -------------------------------------------------------------------------- */
+/*                                   Data                                     */
+/* -------------------------------------------------------------------------- */
+
+const painPoints = [
   {
     kicker: "01",
-    title: "A short game to find your comfort with risk.",
-    body: "Three mini-rounds with Stella, the guide. No wallet, no signup. Replayable any time."
+    title: "Hundreds of tokens, no starting point.",
+    body: "You open any exchange and freeze. Where do you even begin?"
   },
   {
     kicker: "02",
-    title: "Three options explained in words you understand.",
-    body: "Each pick shows its risk, its typical move, and a suggested stop loss. No charts, no jargon."
+    title: "Influencer picks you can't verify.",
+    body: "Every voice shouts the next 100×. You buy one. It dumps 60% by lunch."
   },
   {
     kicker: "03",
-    title: "Your activity and results in one place.",
-    body: "Every purchase and sale, your profit and loss, downloadable as a CSV when you want."
+    title: "Terminals built for pros.",
+    body: "Order books, slippage, pool fees. None of it tells you what to actually buy."
+  },
+  {
+    kicker: "04",
+    title: "Risk you can't measure.",
+    body: "Beginners don't know their risk tolerance until they lose. Too late to learn."
   }
 ];
 
-const howItWorksSteps = [
-  {
-    step: "01",
-    title: "Find your style.",
-    body: "Play the short Stella quiz or pick low, medium, or high risk."
-  },
-  {
-    step: "02",
-    title: "Set your amount and time.",
-    body: "Choose how much of your USDC to use and how long you plan to hold."
-  },
-  {
-    step: "03",
-    title: "Review three options.",
-    body: "See each token's risk, typical move, and a suggested stop loss level. Then pick one."
-  },
-  {
-    step: "04",
-    title: "Confirm and follow.",
-    body: "Review the fee, confirm in your wallet, and sell with one tap whenever you want."
-  }
+const characters = [
+  { chip: "Low risk",       name: "The Guardian",   body: "Protects the chest. Picks slow and steady." },
+  { chip: "Medium risk",    name: "The Explorer",   body: "Takes the trail, but checks the map first." },
+  { chip: "Medium-high",    name: "The Adventurer", body: "Walks into storms when the chest is worth it." },
+  { chip: "High risk",      name: "The Berserker",  body: "Charges the cave. Sets their own limits." }
+];
+
+const numbers = [
+  { n: "1",  unit: "USDC", label: "Minimum trade",       note: "Start small. Learn without risking rent money." },
+  { n: "2",  unit: "%",    label: "Fee on buys",         note: "Zero on sells. No subscription. No lock-in." },
+  { n: "30", unit: "s",    label: "Onboarding quest",    note: "From visit to character to picks." },
+  { n: "5",  unit: "yrs",  label: "Backtested data",     note: "Calibration + validation on Stellar history." },
+  { n: "4",  unit: "",     label: "Wallet integrations", note: "Freighter · xBull · LOBSTR · Albedo",         accent: true },
+  { n: "0",  unit: "",     label: "Server-held keys",    note: "Signatures stay in your wallet, always.",     accent: true }
 ];
 
 const skins = [
@@ -69,17 +92,18 @@ const controlFacts = [
 ];
 
 const stellarBeginnerFacts = [
-  "Purchases settle in seconds and network fees cost a fraction of a cent.",
-  "You keep your money in your own Stellar wallet.",
-  "The fee and the purchase happen together in one transaction."
-];
-
-const stellarJudgeFacts = [
-  "Trades are path payments on the Stellar DEX; the server only builds unsigned transactions and relays the signed one.",
-  "The 2% fee is an extra payment operation in the same atomic transaction.",
-  "Positions are recorded from the on-chain result, not from the quote.",
-  "Recommendation engine uses Stellar market data, backtested on ~5 years of Stellar history (calibration + validation split).",
-  "Wallets via Stellar Wallets Kit (Freighter, xBull, LOBSTR, Albedo and others)."
+  {
+    title: "Your money, your keys.",
+    body: "TokenMetal never holds your money or your keys. Every purchase is confirmed in your own Stellar wallet."
+  },
+  {
+    title: "The purchase and the fee happen together.",
+    body: "Both go through in the same transaction. You never get charged without receiving your token, and the reverse can't happen either."
+  },
+  {
+    title: "What you see is what really happened.",
+    body: "Your activity shows the actual on-chain result of every trade — never a guess or a pre-trade estimate."
+  }
 ];
 
 const faqs = [
@@ -117,11 +141,22 @@ const faqs = [
   }
 ];
 
-function TryButton({ variant = "primary", children = "Try TokenMetal" }: { variant?: "primary" | "secondary"; children?: React.ReactNode }) {
+/* -------------------------------------------------------------------------- */
+/*                                   Icons                                    */
+/* -------------------------------------------------------------------------- */
+
+function ArrowIcon() {
   return (
-    <a className={`launch-button ${variant}`} href={launchUrl}>
-      {children}
-    </a>
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
+      <path
+        d="M4 10h11M11 6l4 4-4 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -136,301 +171,499 @@ function XIcon() {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*                              Reveal animations                             */
+/* -------------------------------------------------------------------------- */
+
+const revealScript = `
+(function(){
+  if (typeof window === "undefined") return;
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var els = document.querySelectorAll(".reveal");
+  if (reduce || !("IntersectionObserver" in window)) {
+    els.forEach(function(el){ el.classList.add("in"); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) {
+        entry.target.classList.add("in");
+        io.unobserve(entry.target);
+      }
+    });
+  }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+  els.forEach(function(el){ io.observe(el); });
+})();
+`;
+
+/* -------------------------------------------------------------------------- */
+/*                              Composed sections                             */
+/* -------------------------------------------------------------------------- */
+
+function StickyHeader() {
+  return (
+    <header className="site-header" aria-label="TokenMetal header">
+      <a className="header-brand" href="#top" aria-label="TokenMetal home">
+        <Image
+          src="/tokenmetal-full-logo.png"
+          alt="TokenMetal"
+          width={2172}
+          height={528}
+          priority
+        />
+      </a>
+      <nav className="header-actions" aria-label="Primary navigation">
+        <a
+          className="social-link"
+          href={tokenMetalXUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="TokenMetal on X"
+        >
+          <XIcon />
+        </a>
+        <LiquidGlassButton href={launchUrl} variant="mint">
+          Try TokenMetal
+        </LiquidGlassButton>
+      </nav>
+    </header>
+  );
+}
+
+function LivePill() {
+  return (
+    <div className="hero-live-dot reveal" aria-hidden="true">
+      <span className="hero-live-pulse" />
+      <span>Live on Stellar</span>
+    </div>
+  );
+}
+
+function TrustRow() {
+  return (
+    <p className="hero-trust-row reveal" aria-label="Why TokenMetal is safe to try">
+      <span className="hero-trust-pill">
+        <span className="hero-trust-dot" aria-hidden="true" />1 USDC minimum
+      </span>
+      <span className="hero-trust-pill">
+        <span className="hero-trust-dot" aria-hidden="true" />Non-custodial
+      </span>
+      <span className="hero-trust-pill">
+        <span className="hero-trust-dot" aria-hidden="true" />No signup
+      </span>
+    </p>
+  );
+}
+
+function Hero() {
+  return (
+    <section
+      className="hero-section hero-with-ether"
+      id="top"
+      style={{ position: "relative", overflow: "hidden", isolation: "isolate" }}
+    >
+      {/* LiquidEther full-bleed background */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none"
+        }}
+      >
+        <LiquidEther
+          colors={["#84f3be", "#5fb3e0", "#ff6f2e", "#b35fe0", "#ff8ab0"]}
+          autoDemo
+          autoIntensity={1.4}
+          persistence={0.8}
+          intensity={0.9}
+          style={{ width: "100%", height: "100%" }}
+        />
+      </div>
+
+      <div className="hero-copy" style={{ position: "relative", zIndex: 1 }}>
+        <LivePill />
+        <h1 className="reveal">Your first step into crypto, your way.</h1>
+        <p className="hero-lede reveal">
+          Explore tokens and make your own decisions with a simple, customizable
+          app built on Stellar.
+        </p>
+        <div className="hero-cta-row reveal">
+          <LiquidGlassButton
+            href={launchUrl}
+            variant="mint"
+            size="lg"
+            icon={<ArrowIcon />}
+          >
+            Try TokenMetal
+          </LiquidGlassButton>
+          <LiquidGlassButton href="#how" variant="glass" size="lg">
+            See how it works
+          </LiquidGlassButton>
+        </div>
+        <TrustRow />
+        <p className="hero-microcopy reveal">
+          Live on Stellar. Purchases use real USDC from your wallet. Start small:
+          the minimum is 1 USDC.
+        </p>
+      </div>
+
+      <div
+        id="hero-mockup-slot"
+        className="hero-mockup-slot reveal"
+        style={{ position: "relative", zIndex: 1 }}
+      >
+        <span className="hero-mockup-label">LIVE · METAL SKIN</span>
+        <Image
+          src="/screenshots/invest-metal-desktop.png"
+          alt="TokenMetal invest app preview — Metal skin"
+          width={1440}
+          height={900}
+          className="hero-mockup-img"
+          priority
+        />
+      </div>
+    </section>
+  );
+}
+
+function SectionHeading({
+  kicker,
+  title,
+  body
+}: {
+  kicker: string;
+  title: string;
+  body?: string;
+}) {
+  return (
+    <div className="section-heading narrow reveal">
+      <p className="eyebrow">{kicker}</p>
+      <h2>{title}</h2>
+      {body ? <p>{body}</p> : null}
+    </div>
+  );
+}
+
+// Problem, Characters, and ByTheNumbers were three heavy card-grid sections —
+// now compacted into a single editorial WhyTokenMetal section (mint accents
+// over dark, typographic, no solid-color cards).
+function Problem() { return null; }
+function Characters() { return null; }
+function ByTheNumbers() { return null; }
+
+function WhyTokenMetal() {
+  return (
+    <section className="content-band why-band" id="why">
+      <SectionHeading
+        kicker="Why TokenMetal exists"
+        title="Simple, honest crypto for people new to this."
+        body="Hundreds of tokens, influencer noise, pro-only terminals, risk you can't measure. We fixed all four — and we did it on Stellar so the numbers stay beginner-friendly."
+      />
+
+      <div className="why-stack">
+        {/* 01 — The problem, as a tight 2×2 editorial list */}
+        <div className="why-block reveal">
+          <div className="why-block-head">
+            <span className="why-block-num">01</span>
+            <span className="why-block-title">The problem</span>
+            <span className="why-block-side">What stops beginners</span>
+          </div>
+          <ul className="why-pain-list">
+            {painPoints.map((p) => (
+              <li key={p.kicker}>
+                <strong>{p.title}</strong>
+                <span>{p.body}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* 02 — The 4 characters as a minimal horizontal strip */}
+        <div className="why-block reveal">
+          <div className="why-block-head">
+            <span className="why-block-num">02</span>
+            <span className="why-block-title">Your character</span>
+            <span className="why-block-side">Played, not asked</span>
+          </div>
+          <div className="why-chars">
+            {characters.map((c) => (
+              <div className="why-char" key={c.name}>
+                <span className="why-char-chip">{c.chip}</span>
+                <strong>{c.name}</strong>
+                <span className="why-char-body">{c.body}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 03 — The numbers as a big inline stat row (no cards) */}
+        <div className="why-block reveal">
+          <div className="why-block-head">
+            <span className="why-block-num">03</span>
+            <span className="why-block-title">By the numbers</span>
+            <span className="why-block-side">Beginner-friendly maths</span>
+          </div>
+          <div className="why-stats">
+            {numbers.map((m) => (
+              <div className="why-stat" key={m.label}>
+                <div className="why-stat-value">
+                  <strong>{m.n}</strong>
+                  {m.unit ? <span className="why-stat-unit">{m.unit}</span> : null}
+                </div>
+                <span className="why-stat-label">{m.label}</span>
+                <span className="why-stat-note">{m.note}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  return (
+    <section className="content-band how-it-works-band" id="how">
+      <SectionHeading
+        kicker="How it works"
+        title="Four steps. Thirty seconds to the first one."
+        body="From your first visit to your first purchase, every step is explained in plain words. You decide, confirm, and keep control at all times."
+      />
+      <div className="reveal">
+        <HowItWorksBento />
+      </div>
+    </section>
+  );
+}
+
+// Inline fallback for SkinShowcase (another agent is building the real one).
+// Preserves the current skin-card markup exactly.
+function SkinShowcase() {
+  return (
+    <div className="skin-gallery">
+      {skins.map((s) => (
+        <div className={`skin-card skin-card-${s.id} reveal`} key={s.id}>
+          <div className="skin-preview" aria-hidden="true">
+            <span className="skin-chip" />
+            <span className="skin-screen" />
+            <span className="skin-button" />
+          </div>
+          <div className="skin-meta">
+            <span className="skin-code">{s.code}</span>
+            <h3>{s.name}</h3>
+            <p>{s.desc}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Skins — show the actual product in each skin as proof, not color swatches.
+function Skins() {
+  const previews = [
+    { id: "metal", name: "Metal", src: "/screenshots/pitch/metal-mobile.png" },
+    { id: "glass", name: "Glass", src: "/screenshots/pitch/glass-mobile.png" },
+    { id: "plush", name: "Plush", src: "/screenshots/pitch/plush-mobile.png" },
+    { id: "grid",  name: "Grid",  src: "/screenshots/pitch/grid-mobile.png" }
+  ];
+  return (
+    <section className="content-band skin-band simple-skin">
+      <div className="simple-skin-shell">
+        <h2 className="reveal">Pick the look that feels like you.</h2>
+        <p className="simple-skin-sub reveal">Four moods. One product. Your pick.</p>
+        <div className="skin-preview-row reveal">
+          {previews.map((p) => (
+            <figure className="skin-preview" key={p.id}>
+              <Image src={p.src} alt={`${p.name} skin`} width={390} height={844} />
+              <figcaption>{p.name}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Trust section — pair the headline with a real product screenshot as proof.
+function Control() {
+  return (
+    <section className="content-band control-band simple-control">
+      <div className="simple-control-shell control-with-proof">
+        <div className="control-copy">
+          <h2 className="reveal">
+            Your money. Your keys. <span className="mint">Full stop.</span>
+          </h2>
+          <p className="simple-control-sub reveal">
+            Every trade is confirmed in your own Stellar wallet. We never move your funds, and the activity you see is always what really happened on-chain.
+          </p>
+          <p className="simple-control-fine reveal">
+            Live on Stellar mainnet. Automatic stop loss is coming soon.
+          </p>
+        </div>
+        <figure className="control-proof reveal">
+          <Image
+            src="/screenshots/features/skin-metal-controls.png"
+            alt="TokenMetal controls on the Metal skin"
+            width={390}
+            height={844}
+            priority={false}
+          />
+        </figure>
+      </div>
+    </section>
+  );
+}
+
+// Stellar merged into Control above — kept as a no-op so references stay valid.
+function Stellar() { return null; }
+
+function _LegacyStellar() {
+  return (
+    <section className="content-band stellar-band">
+      <SectionHeading
+        kicker="Built on Stellar"
+        title="Three simple guarantees."
+      />
+      <div className="stellar-beginner">
+        {stellarBeginnerFacts.map((fact) => (
+          <div className="stellar-fact reveal" key={fact.title}>
+            <h3>{fact.title}</h3>
+            <p>{fact.body}</p>
+          </div>
+        ))}
+      </div>
+      {/* Full architecture + judge-facing details live in /pitch-deck.html */}
+    </section>
+  );
+}
+
+// Simple inline credit — one line, no card chrome.
+function PoweredByCryptodays() {
+  return (
+    <section className="simple-powered reveal">
+      <span className="simple-powered-tag">Powered by</span>
+      <a
+        className="simple-powered-link"
+        href="https://www.cryptodays.xyz/"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Cryptodays
+        <span className="simple-powered-arrow" aria-hidden="true">↗</span>
+      </a>
+      <span className="simple-powered-sub">Web3 agency &amp; events across Spain.</span>
+    </section>
+  );
+}
+
+function FAQ() {
+  return (
+    <section className="content-band faq-band">
+      <div className="band-orb band-orb-A" aria-hidden="true" />
+      <div className="band-orb band-orb-B" aria-hidden="true" />
+      <SectionHeading
+        kicker="Frequently asked questions"
+        title="Clear answers to common questions."
+      />
+      <div className="faq-list">
+        {faqs.map((faq, i) => (
+          <details className="faq-item reveal" key={faq.q} open={i === 0}>
+            <summary>{faq.q}</summary>
+            <p>{faq.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FooterLinks() {
+  return (
+    <nav className="final-links" aria-label="TokenMetal links">
+      <a href={pitchDeckUrl} target="_blank" rel="noreferrer">View pitch deck</a>
+      <span aria-hidden="true">·</span>
+      <a href={tokenMetalXUrl} target="_blank" rel="noreferrer">X (@TokenMetalapp)</a>
+      <span aria-hidden="true">·</span>
+      <a href={founderXUrl} target="_blank" rel="noreferrer">Founder</a>
+      <span aria-hidden="true">·</span>
+      <a href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
+      <span aria-hidden="true">·</span>
+      <a href={launchUrl}>Open the app</a>
+    </nav>
+  );
+}
+
+function FinalCTA() {
+  return (
+    <section
+      className="final-cta reveal"
+      style={{ position: "relative", overflow: "hidden", isolation: "isolate" }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+          opacity: 0.7
+        }}
+      >
+        <MoltenMetal
+          colors={["#0e1c17", "#2f8f66", "#84f3be"]}
+          speed={0.25}
+          glow={1.4}
+          opacity={0.9}
+          style={{ width: "100%", height: "100%" }}
+        />
+      </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <p className="eyebrow">Live on Stellar · One USDC to start</p>
+        <h2>Start exploring crypto your way.</h2>
+        <p>
+          Live on Stellar. Purchases use real USDC from your wallet. Start small:
+          the minimum is 1 USDC.
+        </p>
+        <div className="hero-cta-row">
+          <LiquidGlassButton
+            href={launchUrl}
+            variant="mint"
+            size="lg"
+            icon={<ArrowIcon />}
+          >
+            Try TokenMetal
+          </LiquidGlassButton>
+          <LiquidGlassButton href="#how" variant="glass" size="lg">
+            See how it works
+          </LiquidGlassButton>
+        </div>
+        <FooterLinks />
+      </div>
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                               Landing shell                                */
+/* -------------------------------------------------------------------------- */
+
 export default function LandingPage() {
   return (
     <main className="landing-shell">
-      <header className="site-header" aria-label="TokenMetal header">
-        <a className="header-brand" href="#top" aria-label="TokenMetal home">
-          <Image
-            src="/tokenmetal-full-logo.png"
-            alt="TokenMetal"
-            width={2172}
-            height={528}
-            priority
-          />
-        </a>
-        <nav className="header-actions" aria-label="Primary navigation">
-          <a className="social-link" href={tokenMetalXUrl} target="_blank" rel="noreferrer" aria-label="TokenMetal on X">
-            <XIcon />
-          </a>
-          <TryButton>Try TokenMetal</TryButton>
-        </nav>
-      </header>
-
-      {/* 1. HERO */}
-      <section className="hero-section" id="top">
-        <div className="hero-copy">
-          <p className="eyebrow">Live on Stellar · One USDC to start</p>
-          <h1>Your first step into crypto, your way.</h1>
-          <p className="hero-lede">
-            Explore tokens and make your own decisions with a simple, customizable
-            app built on Stellar.
-          </p>
-          <div className="hero-cta-row">
-            <a className="launch-button hero-cta" href={launchUrl}>
-              Try TokenMetal <span className="hero-cta-arrow" aria-hidden="true">→</span>
-            </a>
-            <a className="ghost-link" href="#how">See how it works</a>
-          </div>
-          <p className="hero-microcopy">
-            Live on Stellar. Purchases use real USDC from your wallet. Start small: the minimum is 1 USDC.
-          </p>
-        </div>
-
-        <aside className="config-panel" aria-label="TokenMetal product preview">
-          <div className="config-screen balance-readout">
-            <span>Your USDC balance</span>
-            <strong>Example</strong>
-          </div>
-
-          <div className="config-screen metrics-readout">
-            <div>
-              <span>Invested</span>
-              <strong>—</strong>
-            </div>
-            <div>
-              <span>Open P/L</span>
-              <strong>—</strong>
-            </div>
-            <div>
-              <span>Open</span>
-              <strong>0</strong>
-            </div>
-            <div>
-              <span>Closed</span>
-              <strong>0</strong>
-            </div>
-          </div>
-
-          <div className="config-module risk-module">
-            <div className="config-screen mini-config-screen">
-              <span>Risk profile</span>
-              <strong>medium</strong>
-            </div>
-            <div className="risk-keypad" aria-label="Three risk levels">
-              {["Low", "Medium", "High"].map((level, i) => (
-                <span className={i === 1 ? "active" : ""} key={level}>
-                  {level}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="config-dual">
-            <div className="config-module">
-              <div className="config-screen mini-config-screen">
-                <span>Amount</span>
-                <strong>35%</strong>
-              </div>
-              <div className="fader-preview" aria-hidden="true">
-                <span />
-                <i />
-              </div>
-              <div className="fader-labels">
-                <span>5</span>
-                <span>25</span>
-                <span>50</span>
-                <span>75</span>
-                <span>100</span>
-              </div>
-            </div>
-            <div className="config-module">
-              <div className="config-screen mini-config-screen">
-                <span>Holding</span>
-                <strong>1 month</strong>
-              </div>
-              <div className="fader-preview holding" aria-hidden="true">
-                <span />
-                <i />
-              </div>
-              <div className="fader-labels">
-                <span>3d</span>
-                <span>1w</span>
-                <span>1m</span>
-                <span>3m</span>
-                <span>6m+</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="config-cta">Review your three picks</div>
-        </aside>
-      </section>
-
-      {/* 2. GETTING STARTED CAN BE SIMPLER */}
-      <section className="content-band getting-started-band">
-        <div className="section-heading narrow">
-          <p className="eyebrow">Getting started can be simpler</p>
-          <h2>You do not need to know everything to take the first step.</h2>
-        </div>
-        <div className="step-grid">
-          {gettingStartedBenefits.map((b) => (
-            <article className="step-card" key={b.kicker}>
-              <span>{b.kicker}</span>
-              <h3>{b.title}</h3>
-              <p>{b.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* 3. HOW IT WORKS */}
-      <section className="content-band how-it-works-band" id="how">
-        <div className="section-heading narrow">
-          <p className="eyebrow">How it works</p>
-          <h2>Four steps. Thirty seconds to the first one.</h2>
-          <p>
-            From your first visit to your first purchase, every step is explained in plain words.
-            You decide, confirm, and keep control at all times.
-          </p>
-        </div>
-        <div className="step-grid four-up">
-          {howItWorksSteps.map((item) => (
-            <article className="step-card" key={item.step}>
-              <span>{item.step}</span>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* 4. MAKE IT YOURS */}
-      <section className="content-band skin-band">
-        <div className="section-heading narrow">
-          <p className="eyebrow">Make it yours</p>
-          <h2>Crypto can feel like you.</h2>
-          <p>
-            Choose a look that matches your style and make TokenMetal your own.
-            Four skins, same product, four personalities.
-          </p>
-        </div>
-        <div className="skin-gallery">
-          {skins.map((s) => (
-            <div className={`skin-card skin-card-${s.id}`} key={s.id}>
-              <div className="skin-preview" aria-hidden="true">
-                <span className="skin-chip" />
-                <span className="skin-screen" />
-                <span className="skin-button" />
-              </div>
-              <div className="skin-meta">
-                <span className="skin-code">{s.code}</span>
-                <h3>{s.name}</h3>
-                <p>{s.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 5. YOU STAY IN CONTROL */}
-      <section className="content-band control-band">
-        <div className="section-heading narrow">
-          <p className="eyebrow">You stay in control</p>
-          <h2>Your decisions, clear at every step.</h2>
-        </div>
-        <div className="control-grid">
-          {controlFacts.map((fact) => (
-            <div className="control-card" key={fact.title}>
-              <h3>{fact.title}</h3>
-              <p>{fact.body}</p>
-            </div>
-          ))}
-        </div>
-        <div className="control-note">
-          <p>
-            <strong>About the stop loss.</strong> Each option shows a suggested stop loss level,
-            the price where you might consider selling to limit a loss.
-            Automatic stop loss on Stellar is <em>coming soon</em>.
-          </p>
-          <p className="risk-warning">
-            Token prices can rise or fall. Suggestions and risk tools do not guarantee that you will avoid losses.
-          </p>
-        </div>
-      </section>
-
-      {/* 6. BUILT ON STELLAR */}
-      <section className="content-band stellar-band">
-        <div className="section-heading narrow">
-          <p className="eyebrow">Built on Stellar</p>
-          <h2>A simpler experience on Stellar.</h2>
-        </div>
-        <div className="stellar-beginner">
-          {stellarBeginnerFacts.map((fact) => (
-            <div className="stellar-fact" key={fact}>
-              <p>{fact}</p>
-            </div>
-          ))}
-        </div>
-        <details className="stellar-judges">
-          <summary>Technical details for judges and developers</summary>
-          <ul>
-            {stellarJudgeFacts.map((fact) => (
-              <li key={fact}>{fact}</li>
-            ))}
-          </ul>
-        </details>
-      </section>
-
-      {/* 7. FOUNDER */}
-      <section className="founder-section">
-        <div className="founder-photo">
-          <Image
-            src="/founder-tomas-mujica.jpg"
-            alt="Tomás Mujica"
-            width={640}
-            height={512}
-          />
-        </div>
-        <div className="founder-copy">
-          <p className="eyebrow">Founder</p>
-          <h2>Built by Tomás Mujica.</h2>
-          <p>
-            Ex-Base, Hedera, Algorand Foundation, OKX. Spent years helping protocols reach new users.
-            TokenMetal is the product he wished existed when his non-crypto friends asked how to start.
-          </p>
-          <a className="founder-link" href={founderXUrl} target="_blank" rel="noreferrer">
-            <XIcon />
-            Follow Tomás on X
-          </a>
-        </div>
-      </section>
-
-      {/* 8. FAQ */}
-      <section className="content-band faq-band">
-        <div className="section-heading narrow">
-          <p className="eyebrow">Frequently asked questions</p>
-          <h2>Clear answers to common questions.</h2>
-        </div>
-        <div className="faq-list">
-          {faqs.map((faq, i) => (
-            <details className="faq-item" key={faq.q} open={i === 0}>
-              <summary>{faq.q}</summary>
-              <p>{faq.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      {/* 9. CLOSING */}
-      <section className="final-cta">
-        <p className="eyebrow">Live on Stellar · One USDC to start</p>
-        <h2>Start exploring crypto your way.</h2>
-        <p>Live on Stellar. Purchases use real USDC from your wallet. Start small: the minimum is 1 USDC.</p>
-        <div className="hero-cta-row" style={{ justifyContent: "center" }}>
-          <a className="launch-button hero-cta" href={launchUrl}>
-            Try TokenMetal <span className="hero-cta-arrow" aria-hidden="true">→</span>
-          </a>
-          <a className="ghost-link" href="#how">See how it works</a>
-        </div>
-        <nav className="final-links" aria-label="TokenMetal links">
-          <a href={tokenMetalXUrl} target="_blank" rel="noreferrer">X (@TokenMetalapp)</a>
-          <span aria-hidden="true">·</span>
-          <a href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
-          <span aria-hidden="true">·</span>
-          <a href={launchUrl}>Open the app</a>
-        </nav>
-      </section>
+      <StickyHeader />
+      <Hero />
+      <Features />
+      <HowItWorks />
+      <Skins />
+      <Control />
+      <Stellar />
+      <PoweredByCryptodays />
+      <FAQ />
+      <FinalCTA />
+      <Script id="landing-reveal" strategy="afterInteractive">{revealScript}</Script>
     </main>
   );
 }

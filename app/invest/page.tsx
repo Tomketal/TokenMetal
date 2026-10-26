@@ -2,9 +2,12 @@
 
 import "./invest.css";
 import "./skins/switcher.css";
+import "./skins/metal.css";
 import "./skins/glass.css";
 import "./skins/plush.css";
 import "./skins/grid.css";
+import "./skins/cryptodays.css";
+import GlassFilterDefs from "../components/GlassFilterDefs";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -18,6 +21,8 @@ import { SkinSwitcher, SKINS, useSkin } from "../components/SkinSwitcher";
 import OnboardingQuest from "../components/OnboardingQuest";
 
 const PlushBackground = dynamic(() => import("./components/PlushBackground"), { ssr: false });
+const MoltenMetal = dynamic(() => import("./components/MoltenMetal"), { ssr: false });
+const LiquidEther = dynamic(() => import("./components/LiquidEther"), { ssr: false });
 
 const dryRun = process.env.NEXT_PUBLIC_DRY_RUN === "true";
 const capitalSymbol = "USDC";
@@ -51,7 +56,7 @@ export default function Home() {
   const positionsStorageKey = owner ? `${positionsStoragePrefix}:${owner}` : "";
   const holdingIndex = Math.max(0, holdingPeriods.indexOf(holdingPeriod));
   const capitalPrecision = 2;
-  const capitalDisplay = walletConnected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Connect wallet";
+  const capitalDisplay = walletConnected ? `${usdcBalance.toFixed(capitalPrecision)} ${capitalSymbol}` : "Sign in to see balance";
   const investAmount = useMemo(() => Math.floor(usdcBalance * allocationPercentage) / 100, [allocationPercentage, usdcBalance]);
   const investDisplay = `${investAmount.toFixed(capitalPrecision)} ${capitalSymbol}`;
   const activePreparedPosition = preparedTrade
@@ -388,7 +393,6 @@ export default function Home() {
 
   return (
     <>
-    {skin === "plush" ? <PlushBackground /> : null}
     <OnboardingQuest
       open={showQuest}
       lang="en"
@@ -405,8 +409,60 @@ export default function Home() {
         }
       }}
     />
+    <GlassFilterDefs />
     <main className="shell">
       <section className="device">
+        {skin === "plush" ? (
+          <PlushBackground
+            style={{
+              /* Extend fur just slightly past the device border for a fluffy
+                 edge — NOT a viewport-wide fur rug. 36px of bleed is enough
+                 to read as puffy fringe without taking over the page. */
+              inset: "-36px",
+              overflow: "visible",
+              borderRadius: "inherit",
+              /* Tight feather: fur stays fully visible across the device,
+                 fades out within the 36px halo, then fully transparent at
+                 the far edge of the extension. */
+              maskImage: "radial-gradient(ellipse 85% 85% at center, #000 80%, transparent 100%)",
+              WebkitMaskImage: "radial-gradient(ellipse 85% 85% at center, #000 80%, transparent 100%)"
+            }}
+          />
+        ) : null}
+        {skin === "metal" ? (
+          <div style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden", borderRadius: "inherit" }}>
+            <MoltenMetal
+              colors={["#0b1512", "#1a3a2d", "#2f8f66", "#84f3be"]}
+              coreColor="#dff8e5"
+              speed={0.22}
+              scale={3.5}
+              detail={3}
+              glow={1.4}
+              thickness={1}
+              haze={0.7}
+              brightness={1.1}
+              colorMode="molten"
+              mouseInteraction
+              flareOnClick
+              opacity={0.6}
+            />
+          </div>
+        ) : null}
+        {skin === "glass" ? (
+          <div style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden", borderRadius: "inherit" }}>
+            <LiquidEther
+              colors={["#dff0ff", "#aed3ff", "#ffffff", "#ffe4a8", "#ffb0d0"]}
+              mouseForce={18}
+              cursorSize={120}
+              persistence={0.78}
+              autoDemo={true}
+              autoSpeed={0.4}
+              autoIntensity={1.8}
+              backgroundColor="transparent"
+              intro={true}
+            />
+          </div>
+        ) : null}
         <div className="chassis-frame">
           <header className="device-head header-shell panel-shell">
             <div className="brand">
@@ -422,7 +478,17 @@ export default function Home() {
                 />
                 <span className="brand-logo-skin" aria-hidden="true" />
               </div>
-              <span>The beginner-friendly Stellar investment app | Powered by La Familia</span>
+              <span>
+                The beginner-friendly Stellar investment app | Powered by{" "}
+                <a
+                  href="https://www.cryptodays.xyz/"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "inherit", textDecoration: "underline" }}
+                >
+                  Cryptodays
+                </a>
+              </span>
             </div>
             <div className="wallet-dock">
               <SkinSwitcher skin={skin} onChange={setSkin} />
@@ -479,17 +545,34 @@ export default function Home() {
 
               <div className="dial-row">
                 <div className="control-module dial-module">
-                  <div className="mini-screen">
+                  <div className="mini-screen capital-screen">
                     <span>Capital</span>
-                    <strong>{allocationPercentage}%</strong>
+                    <span className="capital-input-wrap">
+                      <input
+                        className="capital-input"
+                        aria-label="Capital percentage"
+                        type="number"
+                        min={1}
+                        max={100}
+                        step={1}
+                        value={allocationPercentage}
+                        onChange={(event) => {
+                          const raw = Number(event.target.value);
+                          if (Number.isNaN(raw)) return;
+                          const clamped = Math.max(1, Math.min(100, Math.round(raw)));
+                          setAllocationPercentage(clamped);
+                        }}
+                      />
+                      <strong>%</strong>
+                    </span>
                   </div>
                   <label className="fader-control">
                     <input
                       aria-label="Amount to invest"
                       type="range"
-                      min={5}
+                      min={1}
                       max={100}
-                      step={5}
+                      step={1}
                       value={allocationPercentage}
                       onChange={(event) => setAllocationPercentage(Number(event.target.value))}
                     />
@@ -535,7 +618,7 @@ export default function Home() {
 
               <div className={`key-button-wrap ${needsUsdcFunding ? "show-deposit-hint" : ""}`}>
                 <button className="key-button" disabled={!canRequestOpportunities} onClick={requestRecommendations}>
-                  {busy === "recommendations" ? "READING THE MARKET..." : "GET OPPORTUNITIES"}
+                  {busy === "recommendations" ? "FINDING YOUR 3 PICKS..." : "SHOW ME MY 3 PICKS"}
                 </button>
                 {needsUsdcFunding ? (
                   <div className="hover-deposit-modal" role="tooltip" aria-live="polite">
@@ -545,7 +628,7 @@ export default function Home() {
                 ) : null}
               </div>
               {!walletConnected ? (
-                <p className="console-note">Connect your Stellar wallet to see today&apos;s picks.</p>
+                <p className="console-note">Sign in with your Stellar wallet to see today&apos;s picks.</p>
               ) : needsUsdcFunding ? (
                 <p className="console-note">{fundingBlockerMessage}</p>
               ) : belowMinimum ? (
@@ -618,7 +701,7 @@ export default function Home() {
                       </>
                     ) : (
                       <>
-                        {recommendations.length === 0 ? <p className="hint">To get started, connect your wallet, set your profile, then press get opportunities.</p> : null}
+                        {recommendations.length === 0 ? <p className="hint">Sign in, choose your risk, and we&apos;ll show you three picks matched to your profile.</p> : null}
                         {recommendations.length ? (
                           <div className="op-summary">
                             <span>Picks ranked with live Stellar market data and matched to your profile.</span>

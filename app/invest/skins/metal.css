@@ -1,0 +1,30 @@
+/* METAL-01 — adjustments to let the MoltenMetal WebGL canvas show through
+   the chrome chassis as an animated green molten flow. The base chrome
+   rim, highlights and bevels stay — only the opaque background panel is
+   softened so the molten layer is visible as the "molten metal" surface. */
+
+[data-skin="metal"] .device {
+  position: relative;
+  overflow: hidden;
+  /* Keep the chrome rim gradient but drop the opaque fill behind it so the
+     MoltenMetal canvas (absolute inset:0, z-index:0) reads as the molten
+     material of the case. */
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.18) 0%, rgba(100, 120, 130, 0.1) 60%, rgba(50, 60, 65, 0.14) 100%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Panels keep their chrome aesthetic but add real opaque backing so the
+   content stays readable over the animated molten metal. */
+[data-skin="metal"] .panel-shell {
+  background:
+    radial-gradient(circle at 16% 6%, rgba(255, 255, 255, 0.56), transparent 38%),
+    linear-gradient(145deg, rgba(244, 248, 248, 0.95) 0%, rgba(191, 202, 208, 0.9) 56%, rgba(141, 157, 166, 0.9) 100%);
+}
+
+/* Every direct child of .device sits above the molten canvas */
+[data-skin="metal"] .device > * {
+  position: relative;
+  z-index: 1;
+}

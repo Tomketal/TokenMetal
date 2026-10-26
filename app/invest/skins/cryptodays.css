@@ -1,0 +1,571 @@
+/* CRYPTODAYS — authentic brand palette matched to cryptodays.xyz:
+   - Pure black #000 background, no gradients
+   - Chartreuse/acid-lime yellow #DAFF00 (NOT the lemon #F3FF00 we had before —
+     the live site uses a greener, more electric shade)
+   - Bebas Neue for display headings (big, tight, uppercase, generous tracking)
+   - Inter 300/400/500/600/700 for body and UI chrome
+   - CTAs: slightly rounded rectangles (6px radius), not full pills — the real
+     site uses tight corners, not capsules
+   - Hover inverts fill (yellow → black bg + yellow text, or vice-versa)
+   - Flat sections, hairline white 8% borders, zero bevels/glow */
+
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap");
+
+:root[data-skin="cryptodays"] {
+  --cd-bg: #000000;
+  --cd-bg-2: #0a0a0a;
+  --cd-yellow: #cfdc2e;         /* muted olive-chartreuse — the real cryptodays accent */
+  --cd-yellow-pressed: #b9c528;
+  --cd-yellow-glow: rgba(207, 220, 46, 0.22);
+  --cd-ink: #ffffff;
+  --cd-ink-dim: #c4c4c4;
+  --cd-ink-muted: rgba(255, 255, 255, 0.5);
+  --cd-line: rgba(255, 255, 255, 0.10);
+  --cd-line-bright: rgba(207, 220, 46, 0.32);
+  --cd-screen: #000000;
+  --cd-dot: rgba(255, 255, 255, 0.08);
+
+  --accent: var(--cd-yellow);
+  --accent-glow: var(--cd-yellow-glow);
+  --screen-ink: var(--cd-ink);
+  --screen-muted: var(--cd-ink-dim);
+  --positive: var(--cd-yellow);
+  --danger: #ff4d4d;
+
+  --cd-font: "Inter", "Helvetica Neue", "Arial", sans-serif;
+  --cd-display: "Bebas Neue", "Oswald", "Impact", "Helvetica Neue", sans-serif;
+  --cd-pixel: "Press Start 2P", "VT323", "Courier New", monospace;
+  --cd-font-mono: "JetBrains Mono", "IBM Plex Mono", "Menlo", monospace;
+}
+
+/* ---------- Body + dotted matrix background ---------- */
+
+[data-skin="cryptodays"] body {
+  background:
+    radial-gradient(circle at 1px 1px, var(--cd-dot) 1px, transparent 1.5px) 0 0 / 14px 14px,
+    var(--cd-bg);
+  color: var(--cd-ink);
+  font-family: var(--cd-font);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-skin="cryptodays"] body::before,
+[data-skin="cryptodays"] body::after {
+  background: none;
+  display: none;
+}
+
+[data-skin="cryptodays"] .shell {
+  position: relative;
+  z-index: 2;
+}
+
+/* ---------- Device chassis — flat matte black card with hairline edge ---------- */
+
+[data-skin="cryptodays"] .device {
+  border-radius: 8px;
+  background: var(--cd-bg);
+  border: 1px solid var(--cd-line);
+  box-shadow: none;
+  transform: none;
+  color: var(--cd-ink);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 24px;
+}
+
+/* Kill the base retro-futuristic bevels/glows */
+[data-skin="cryptodays"] .device::before,
+[data-skin="cryptodays"] .device::after {
+  display: none;
+}
+
+[data-skin="cryptodays"] .chassis-frame {
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+
+[data-skin="cryptodays"] .chassis-frame::before,
+[data-skin="cryptodays"] .chassis-frame::after {
+  display: none;
+}
+
+/* ---------- Typography ---------- */
+
+[data-skin="cryptodays"] .device,
+[data-skin="cryptodays"] .device p,
+[data-skin="cryptodays"] .device button,
+[data-skin="cryptodays"] .device label,
+[data-skin="cryptodays"] .device span,
+[data-skin="cryptodays"] .device input,
+[data-skin="cryptodays"] .device select {
+  font-family: var(--cd-font);
+  color: var(--cd-ink);
+}
+
+/* Headings use Bebas Neue — big, uppercase, wide tracking — like the real site */
+[data-skin="cryptodays"] .device h1,
+[data-skin="cryptodays"] .device h2,
+[data-skin="cryptodays"] .device h3,
+[data-skin="cryptodays"] .device h4 {
+  font-family: var(--cd-display);
+  color: var(--cd-ink);
+  font-weight: 400;         /* Bebas Neue only ships one weight */
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+[data-skin="cryptodays"] .device strong {
+  font-family: var(--cd-font);
+  font-weight: 700;
+  color: var(--cd-ink);
+}
+
+[data-skin="cryptodays"] .screen,
+[data-skin="cryptodays"] .screen span,
+[data-skin="cryptodays"] .screen p,
+[data-skin="cryptodays"] .screen strong {
+  font-family: var(--cd-font-mono);
+}
+
+/* ---------- Panels — flat, no bevels, hairline edge ---------- */
+/* Kills the base silver-chrome gradient from invest.css .panel-shell + its ::before
+   inner frame + all the sub-panel variants (.header-shell, .control-deck, .op-shell,
+   .control-module, .dial-module, .hold-module) that bleed silver through. */
+
+[data-skin="cryptodays"] .panel-shell,
+[data-skin="cryptodays"] .header-shell,
+[data-skin="cryptodays"] .control-deck,
+[data-skin="cryptodays"] .op-shell,
+[data-skin="cryptodays"] .control-module,
+[data-skin="cryptodays"] .dial-module,
+[data-skin="cryptodays"] .hold-module {
+  border-radius: 6px;
+  background: var(--cd-bg) !important;
+  border: 1px solid var(--cd-line) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transform: none !important;
+}
+
+[data-skin="cryptodays"] .panel-shell::before,
+[data-skin="cryptodays"] .panel-shell::after,
+[data-skin="cryptodays"] .control-module::before,
+[data-skin="cryptodays"] .control-module::after {
+  display: none !important;
+}
+
+[data-skin="cryptodays"] .panel-shell { padding: 20px; }
+[data-skin="cryptodays"] .control-module { padding: 14px; }
+
+/* ---------- Brand lockup ---------- */
+
+[data-skin="cryptodays"] .brand {
+  color: var(--cd-yellow);
+  font-family: var(--cd-pixel);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+}
+
+[data-skin="cryptodays"] .brand-kicker {
+  background: transparent;
+  color: var(--cd-yellow);
+  border: 1px solid var(--cd-yellow);
+  border-radius: 2px;
+  padding: 4px 10px;
+  font-family: var(--cd-font);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: none;
+}
+
+[data-skin="cryptodays"] .brand span {
+  color: var(--cd-ink-muted);
+  font-family: var(--cd-font);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* ---------- Wallet dock + button ---------- */
+
+[data-skin="cryptodays"] .wallet-dock {
+  background: transparent;
+  border: 1px solid var(--cd-line);
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: none;
+}
+
+[data-skin="cryptodays"] .wallet-adapter-button-trigger,
+[data-skin="cryptodays"] .wallet-placeholder {
+  background: var(--cd-yellow) !important;
+  color: #000 !important;
+  border: 1px solid var(--cd-yellow) !important;
+  border-radius: 4px !important;
+  font-family: var(--cd-font) !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+  box-shadow: none !important;
+  padding: 10px 18px !important;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Signature cryptodays hover: fill inverts to black with yellow text + border */
+[data-skin="cryptodays"] .wallet-adapter-button-trigger:hover,
+[data-skin="cryptodays"] .wallet-placeholder:hover {
+  background: #000 !important;
+  color: var(--cd-yellow) !important;
+  border-color: var(--cd-yellow) !important;
+}
+
+[data-skin="cryptodays"] .privy-wallet-menu {
+  background: var(--cd-bg);
+  border: 1px solid var(--cd-line);
+  border-radius: 6px;
+  backdrop-filter: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-skin="cryptodays"] .privy-wallet-menu-item {
+  background: transparent;
+  color: var(--cd-ink);
+  border-radius: 2px;
+}
+
+[data-skin="cryptodays"] .privy-wallet-menu-item:hover {
+  background: var(--cd-yellow);
+  color: #000;
+}
+
+/* ---------- Screens — pure black with white text, yellow highlights ---------- */
+
+[data-skin="cryptodays"] .screen {
+  background: var(--cd-screen);
+  border: 1px solid var(--cd-line);
+  border-radius: 4px;
+  color: var(--cd-ink);
+  box-shadow: none;
+}
+
+[data-skin="cryptodays"] .screen::after {
+  display: none;
+}
+
+[data-skin="cryptodays"] .screen-title h2 {
+  color: var(--cd-ink);
+  font-family: var(--cd-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
+[data-skin="cryptodays"] .screen-title span,
+[data-skin="cryptodays"] .balance-screen span,
+[data-skin="cryptodays"] .mini-screen span,
+[data-skin="cryptodays"] .balance-chip span,
+[data-skin="cryptodays"] .engine-mini-screen span {
+  color: var(--cd-ink-muted);
+  font-family: var(--cd-font);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+[data-skin="cryptodays"] .balance-screen strong {
+  color: var(--cd-ink);
+  font-family: var(--cd-display);
+  font-weight: 400;
+  font-size: 44px;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+[data-skin="cryptodays"] .balance-chip {
+  background: transparent;
+  border: 1px solid var(--cd-line);
+  border-radius: 4px;
+}
+
+[data-skin="cryptodays"] .balance-chip strong {
+  color: var(--cd-yellow);
+  font-family: var(--cd-font);
+  font-weight: 700;
+}
+
+[data-skin="cryptodays"] .mini-screen {
+  background: transparent;
+  border: 1px solid var(--cd-line);
+  border-radius: 4px;
+}
+
+[data-skin="cryptodays"] .mini-screen strong {
+  color: var(--cd-ink);
+  font-family: var(--cd-display);
+  font-weight: 400;
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+[data-skin="cryptodays"] .engine-mini-screen {
+  background: transparent;
+  border: 1px solid var(--cd-line);
+  border-radius: 4px;
+}
+
+/* ---------- Risk buttons — tight rounded rect, yellow when active ---------- */
+
+[data-skin="cryptodays"] .risk-slider {
+  gap: 8px;
+}
+
+[data-skin="cryptodays"] .risk-dot {
+  background: transparent !important;
+  border: 1px solid var(--cd-line) !important;
+  border-radius: 4px !important;
+  color: var(--cd-ink) !important;
+  font-family: var(--cd-font) !important;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 11px;
+  box-shadow: none !important;
+  padding: 10px 18px;
+  min-height: 40px;
+  transform: none !important;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
+}
+
+[data-skin="cryptodays"] .risk-dot:hover {
+  background: transparent !important;
+  border-color: var(--cd-yellow) !important;
+  color: var(--cd-yellow) !important;
+}
+
+[data-skin="cryptodays"] .risk-dot.active {
+  background: var(--cd-yellow) !important;
+  color: #000 !important;
+  border-color: var(--cd-yellow) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* The label is in a child <span> that inherits white from the global
+   `.device span { color: var(--cd-ink) }` rule — force black inside the
+   active yellow pill so it's readable. */
+[data-skin="cryptodays"] .risk-dot.active span {
+  color: #000 !important;
+}
+
+/* ---------- Sliders — flat track + flat yellow thumb, kill chrome ---------- */
+
+[data-skin="cryptodays"] .fader-slot {
+  background: var(--cd-line) !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  height: 2px !important;
+}
+
+[data-skin="cryptodays"] .fader-control input::-webkit-slider-runnable-track {
+  background: var(--cd-line) !important;
+  border-radius: 0 !important;
+  height: 2px !important;
+  box-shadow: none !important;
+}
+
+[data-skin="cryptodays"] .fader-control input::-webkit-slider-thumb {
+  background: var(--cd-yellow) !important;
+  border: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin-top: -7px !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+
+[data-skin="cryptodays"] .fader-control input::-moz-range-track {
+  background: var(--cd-line) !important;
+  border-radius: 0 !important;
+  height: 2px !important;
+  box-shadow: none !important;
+}
+
+[data-skin="cryptodays"] .fader-control input::-moz-range-thumb {
+  background: var(--cd-yellow) !important;
+  border: none !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+
+[data-skin="cryptodays"] .fader-scale span {
+  color: var(--cd-ink-muted);
+  font-family: var(--cd-font);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ---------- Primary CTA buttons — OUTLINE by default (yellow border + transparent),
+   FILLED on hover (yellow bg + black text). Matches the live site's "WORK WITH US". */
+
+[data-skin="cryptodays"] .key-button,
+[data-skin="cryptodays"] .trade-now-button,
+[data-skin="cryptodays"] .review-cta {
+  background: transparent !important;
+  color: var(--cd-yellow) !important;
+  border: 1.5px solid var(--cd-yellow) !important;
+  border-radius: 4px !important;
+  font-family: var(--cd-font) !important;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 13px;
+  box-shadow: none !important;
+  padding: 14px 28px;
+  animation: none !important;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
+}
+
+[data-skin="cryptodays"] .key-button:hover,
+[data-skin="cryptodays"] .trade-now-button:hover,
+[data-skin="cryptodays"] .review-cta:hover {
+  background: var(--cd-yellow) !important;
+  color: #000 !important;
+  border-color: var(--cd-yellow) !important;
+  filter: none !important;
+}
+
+[data-skin="cryptodays"] .blink-button {
+  background: transparent;
+  color: var(--cd-yellow);
+  border: 1px solid var(--cd-yellow);
+  border-radius: 4px;
+  font-family: var(--cd-font);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: none;
+  animation: none;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+[data-skin="cryptodays"] .blink-button:hover {
+  background: var(--cd-yellow);
+  color: #000;
+}
+
+[data-skin="cryptodays"] .secondary {
+  background: transparent;
+  color: var(--cd-ink);
+  border: 1px solid var(--cd-line);
+  border-radius: 4px;
+  font-family: var(--cd-font);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+[data-skin="cryptodays"] .secondary:hover {
+  border-color: var(--cd-yellow);
+  color: var(--cd-yellow);
+}
+
+[data-skin="cryptodays"] .back-button {
+  background: transparent;
+  color: var(--cd-ink);
+  border: 1px solid var(--cd-line);
+  border-radius: 4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+[data-skin="cryptodays"] .back-button:hover {
+  border-color: var(--cd-yellow);
+  color: var(--cd-yellow);
+}
+
+/* ---------- Positions / op cards ---------- */
+
+[data-skin="cryptodays"] .positions-panel {
+  background: var(--cd-bg);
+  border: 1px solid var(--cd-line);
+  border-radius: 6px;
+}
+
+[data-skin="cryptodays"] .position {
+  background: transparent;
+  border: 1px solid var(--cd-line);
+  border-radius: 4px;
+  color: var(--cd-ink);
+}
+
+[data-skin="cryptodays"] .op-card {
+  background: var(--cd-bg);
+  border: 1px solid var(--cd-line);
+  border-radius: 6px;
+  color: var(--cd-ink);
+  transition: border-color 0.2s ease;
+}
+
+[data-skin="cryptodays"] .op-card:hover {
+  border-color: rgba(218, 255, 0, 0.4);
+}
+
+[data-skin="cryptodays"] .op-card.selected {
+  border-color: var(--cd-yellow);
+  box-shadow: 0 0 0 1px var(--cd-yellow);
+}
+
+[data-skin="cryptodays"] .positive { color: var(--cd-yellow); }
+[data-skin="cryptodays"] .negative { color: #ff4d4d; }
+
+/* ---------- Overlays ---------- */
+
+[data-skin="cryptodays"] .position-opened-popup,
+[data-skin="cryptodays"] .position-details-popup {
+  background: var(--cd-bg);
+  border: 1px solid var(--cd-line);
+  border-radius: 6px;
+  color: var(--cd-ink);
+  backdrop-filter: none;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+[data-skin="cryptodays"] .network-warning-bottom,
+[data-skin="cryptodays"] .error-screen {
+  background: var(--cd-bg);
+  border: 1px solid var(--cd-yellow);
+  color: var(--cd-ink);
+  border-radius: 4px;
+}
+
+/* ---------- Hint text ---------- */
+
+[data-skin="cryptodays"] .hint,
+[data-skin="cryptodays"] .console-note {
+  color: var(--cd-ink-muted);
+  font-family: var(--cd-font);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
