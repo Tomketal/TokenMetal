@@ -131,7 +131,8 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!window.localStorage.getItem("tm:questDone")) setShowQuest(true);
+    // Shown on every visit (demo); "Skip" closes it right away.
+    setShowQuest(true);
     const character = window.localStorage.getItem("tm:questCharacter");
     if (character) setQuestCharacter(character);
   }, []);
@@ -405,7 +406,7 @@ export default function Home() {
           if (r) window.localStorage.setItem("tm:questCharacter", r.key);
         }
         if (r) {
-          setRiskProfile(r.risk);
+          chooseRiskProfile(r.risk);
           setQuestCharacter(r.key);
         }
       }}
