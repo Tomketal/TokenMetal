@@ -309,7 +309,7 @@ export default function Home() {
         const prepareResponse = await fetch("/api/positions/close", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "prepare", owner, positionId: position.id })
+          body: JSON.stringify({ action: "prepare", owner, positionId: position.id, position })
         });
         const preparePayload = await prepareResponse.json();
         if (!prepareResponse.ok) throw new Error(preparePayload.error || "Close preparation failed.");
@@ -324,7 +324,7 @@ export default function Home() {
       const confirmResponse = await fetch("/api/positions/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "confirm", owner, positionId: position.id, signature })
+        body: JSON.stringify({ action: "confirm", owner, positionId: position.id, signature, position })
       });
       const confirmPayload = await confirmResponse.json();
       if (!confirmResponse.ok) throw new Error(confirmPayload.error || "Close confirmation failed.");
@@ -354,7 +354,8 @@ export default function Home() {
           action: "confirm",
           owner,
           positionId: position.id,
-          signature: `local-close-${crypto.randomUUID()}`
+          signature: `local-close-${crypto.randomUUID()}`,
+          position
         })
       });
       const confirmPayload = await confirmResponse.json();
