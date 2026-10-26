@@ -709,9 +709,9 @@ export default function LandingPage() {
     <main className="landing-shell">
       <StickyHeader />
       <Hero />
+      <Skins />
       <Features />
       <HowItWorks />
-      <Skins />
       <Control />
       <Stellar />
       <FAQ />
