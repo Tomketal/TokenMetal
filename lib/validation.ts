@@ -51,13 +51,16 @@ export const closeRequestSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("prepare"),
     owner: stellarAddress,
-    positionId: z.string()
+    positionId: z.string(),
+    // Client copy of the position, used when this server instance never saw it.
+    position: z.any().optional()
   }),
   z.object({
     action: z.literal("confirm"),
     owner: stellarAddress,
     positionId: z.string(),
-    signature: txHash
+    signature: txHash,
+    position: z.any().optional()
   })
 ]);
 

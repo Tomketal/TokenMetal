@@ -62,14 +62,47 @@ export async function createPosition(preparedTrade: PreparedTrade, signature: st
 
   positions.push(position);
   await writePositions(positions);
-  await recordEntryTransaction(position, preparedTrade, signature);
+  await recordLedgerSafely(() => recordEntryTransaction(position, preparedTrade, signature));
   return position;
 }
 
-export async function closePosition(positionId: string, owner: string, signature: string, finalSnapshot?: Partial<Position>) {
+// On serverless hosts each instance has its own temporary disk, so the
+// instance closing a position may never have seen it open. The client's copy
+// is accepted as a fallback; the close itself is still verified on-chain.
+export async function findPosition(positionId: string, owner: string, clientCopy?: unknown) {
   const positions = await readPositions();
-  const position = positions.find((item) => item.id === positionId && item.owner === owner);
-  if (!position) throw new Error("Position not found.");
+  const stored = positions.find((item) => item.id === positionId && item.owner === owner);
+  if (stored) return stored;
+
+  const candidate = clientCopy as Partial<Position> | undefined;
+  if (
+    candidate &&
+    candidate.id === positionId &&
+    candidate.owner === owner &&
+    typeof candidate.mintAddress === "string" &&
+    typeof candidate.tokenAmountRaw === "string" &&
+    typeof candidate.entryUsdc === "number"
+  ) {
+    return candidate as Position;
+  }
+  return null;
+}
+
+export async function closePosition(
+  positionId: string,
+  owner: string,
+  signature: string,
+  finalSnapshot?: Partial<Position>,
+  clientCopy?: unknown
+) {
+  const positions = await readPositions();
+  let position = positions.find((item) => item.id === positionId && item.owner === owner);
+  if (!position) {
+    const fallback = await findPosition(positionId, owner, clientCopy);
+    if (!fallback) throw new Error("Position not found.");
+    position = { ...fallback, status: "open" };
+    positions.push(position);
+  }
   if (position.status === "closed") return position;
 
   const entrySnapshot: Position = { ...position };
@@ -78,8 +111,18 @@ export async function closePosition(positionId: string, owner: string, signature
   position.closeSignature = signature;
   position.closedAt = new Date().toISOString();
   await writePositions(positions);
-  await recordExitTransaction(entrySnapshot, position, signature);
+  await recordLedgerSafely(() => recordExitTransaction(entrySnapshot, position, signature));
   return position;
+}
+
+// The SQLite activity ledger is a convenience; a failure there (e.g. a
+// read-only or wiped disk) must never fail a trade that already settled.
+async function recordLedgerSafely(record: () => Promise<unknown> | unknown) {
+  try {
+    await record();
+  } catch (error) {
+    console.error("Transaction ledger write failed:", error);
+  }
 }
 
 export async function patchPosition(positionId: string, owner: string, patch: Partial<Position>) {

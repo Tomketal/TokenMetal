@@ -10,7 +10,7 @@
 //
 // Keys are generated per run, funded by Friendbot and only ever touch testnet.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { Asset, Horizon, Keypair, Networks, Operation, TransactionBuilder } from "@stellar/stellar-sdk";
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org";
@@ -117,12 +117,18 @@ async function run() {
   const open = listed.open.find((item) => item.id === position.id);
   check(open && open.pnlPercent < 0, `open PnL is marked to the bid (${open?.pnlPercent?.toFixed(2)}%)`);
 
-  // 4. Close it.
-  const { closeTrade } = await api("POST", "/api/positions/close", { action: "prepare", owner, positionId: position.id });
+  // 4. Close it. With E2E_WIPE_POSITIONS set to the server's positions file, the
+  // store is wiped first, like a serverless instance that never saw the buy;
+  // the close must still work from the client's copy of the position.
+  if (process.env.E2E_WIPE_POSITIONS) {
+    if (existsSync(process.env.E2E_WIPE_POSITIONS)) unlinkSync(process.env.E2E_WIPE_POSITIONS);
+    console.log("  wiped server position store");
+  }
+  const { closeTrade } = await api("POST", "/api/positions/close", { action: "prepare", owner, positionId: position.id, position });
   check(closeTrade.quoteResponse.removesTrustline === true, "close removes the TMTL trustline");
   const sell = await api("POST", "/api/tx/broadcast", { signedTransaction: sign(closeTrade.swapTransaction, user) });
   console.log(`  close tx ${sell.signature}`);
-  const closed = await api("POST", "/api/positions/close", { action: "confirm", owner, positionId: position.id, signature: sell.signature });
+  const closed = await api("POST", "/api/positions/close", { action: "confirm", owner, positionId: position.id, signature: sell.signature, position });
   const expectedExit = 98 / 11;
   check(closed.position.status === "closed", "position is closed");
   check(Math.abs(closed.position.currentValueUsd - expectedExit) < 0.001, `exit value is ${expectedExit.toFixed(4)} USDC (${closed.position.currentValueUsd})`);

@@ -212,7 +212,8 @@ export default function DevPage() {
         post<{ closeTrade: { swapTransaction: string } }>("/api/positions/close", {
           action: "prepare",
           owner: address,
-          positionId: position.id
+          positionId: position.id,
+          position
         });
       const { closeTrade } = await prepareClose();
       const signature = status?.sandboxTrading
@@ -222,7 +223,8 @@ export default function DevPage() {
         action: "confirm",
         owner: address,
         positionId: position.id,
-        signature
+        signature,
+        position
       });
       say(`Closed ${closed.tokenSymbol}: PnL ${closed.pnlUsd?.toFixed(4)} USDC (${closed.pnlPercent?.toFixed(2)}%)`);
     });
